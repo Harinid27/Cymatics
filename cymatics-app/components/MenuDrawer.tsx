@@ -90,7 +90,7 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
                  normalizedPathname === `/${tabName}` ||
                  pathname === `/${tabName}`;
     } else {
-      // Standalone routes (status, clients, pending-payments, budget)
+      // Standalone routes (status, clients, pending-payments, budget, profile)
       isActive = normalizedPathname === normalizedRoute || pathname === item.route;
     }
 

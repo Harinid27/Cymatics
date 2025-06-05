@@ -11,6 +11,7 @@ import {
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
+import { router } from 'expo-router';
 
 export default function DashboardScreen() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -21,6 +22,22 @@ export default function DashboardScreen() {
 
   const handleMenuClose = () => {
     setIsMenuVisible(false);
+  };
+
+  const handleStatusPress = () => {
+    router.push('/status');
+  };
+
+  const handleClientsPress = () => {
+    router.push('/clients');
+  };
+
+  const handleProfilePress = () => {
+    router.push('/profile');
+  };
+
+  const handleMessagePress = () => {
+    router.push('/chat');
   };
 
   return (
@@ -36,10 +53,10 @@ export default function DashboardScreen() {
           <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
         <View style={styles.rightSection}>
-          <TouchableOpacity style={styles.messageButton}>
+          <TouchableOpacity style={styles.messageButton} onPress={handleMessagePress}>
             <IconSymbol name="message.fill" size={24} color="#000" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <IconSymbol name="person.circle.fill" size={32} color="#000" />
           </TouchableOpacity>
         </View>
@@ -55,11 +72,11 @@ export default function DashboardScreen() {
 
         {/* Status Navigation */}
         <View style={styles.statusNav}>
-          <TouchableOpacity style={styles.statusTab}>
+          <TouchableOpacity style={styles.statusTab} onPress={handleStatusPress}>
             <MaterialIcons name="donut-large" size={20} color="#000" />
             <Text style={styles.statusText}>Status</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statusTab}>
+          <TouchableOpacity style={styles.statusTab} onPress={handleClientsPress}>
             <Ionicons name="people-outline" size={20} color="#000" />
             <Text style={styles.statusText}>Clients</Text>
           </TouchableOpacity>
