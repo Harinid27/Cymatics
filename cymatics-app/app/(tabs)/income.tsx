@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,14 +7,54 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
+import FinancialService, { Income, IncomeChartData } from '@/src/services/FinancialService';
 
 export default function IncomeScreen() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Ongoing');
+  const [incomes, setIncomes] = useState<Income[]>([]);
+  const [chartData, setChartData] = useState<IncomeChartData['chartData']>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+
+      const [incomesResponse, chartResponse] = await Promise.all([
+        FinancialService.getIncomes({ limit: 50 }),
+        FinancialService.getIncomeChartData('6months'),
+      ]);
+
+      // Ensure data is always an array
+      setIncomes(Array.isArray(incomesResponse?.data) ? incomesResponse.data : []);
+      setChartData(Array.isArray(chartResponse?.chartData) ? chartResponse.chartData : []);
+    } catch (error) {
+      console.error('Failed to load income data:', error);
+      setError('Failed to load income data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadData();
+    setIsRefreshing(false);
+  };
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -24,45 +64,111 @@ export default function IncomeScreen() {
     setIsMenuVisible(false);
   };
 
-  // Sample payment data
-  const paymentData = [
-    { id: 1, name: 'Kedarkantha', amount: '$4237', date: '24 April 2024', status: 'Ongoing' },
-    { id: 2, name: 'Kedarkantha', amount: '$4237', date: '24 April 2024', status: 'Ongoing' },
-    { id: 3, name: 'Kedarkantha', amount: '$4237', date: '24 April 2024', status: 'Ongoing' },
-    { id: 4, name: 'Kedarkantha', amount: '$4237', date: '24 April 2024', status: 'Ongoing' },
-    { id: 5, name: 'Kedarkantha', amount: '$4237', date: '24 April 2024', status: 'Ongoing' },
-    { id: 6, name: 'Corporate Event', amount: '$3500', date: '22 April 2024', status: 'Pending' },
-    { id: 7, name: 'Product Launch', amount: '$5200', date: '20 April 2024', status: 'Pending' },
-    { id: 8, name: 'Fashion Shoot', amount: '$2800', date: '18 April 2024', status: 'Pending' },
-    { id: 9, name: 'Industry Shoot', amount: '$4100', date: '16 April 2024', status: 'Pending' },
-    { id: 10, name: 'Wedding Photography', amount: '$3900', date: '14 April 2024', status: 'Pending' },
-    { id: 11, name: 'Commercial Shoot', amount: '$4500', date: '12 April 2024', status: 'Completed' },
-    { id: 12, name: 'Event Photography', amount: '$3200', date: '10 April 2024', status: 'Completed' },
-    { id: 13, name: 'Portrait Session', amount: '$2500', date: '8 April 2024', status: 'Completed' },
-    { id: 14, name: 'Brand Shoot', amount: '$4800', date: '6 April 2024', status: 'Completed' },
-    { id: 15, name: 'Documentary Project', amount: '$5500', date: '4 April 2024', status: 'Completed' },
-    { id: 16, name: 'Music Video', amount: '$6200', date: '2 April 2024', status: 'Completed' },
-  ];
+  // Filter incomes based on active tab (for demo purposes, we'll categorize by project status)
+  const getIncomeStatus = (income: Income): string => {
+    if (income.projectIncome && income.project) {
+      // This is a simplified status mapping - in real app, you'd have actual status from projects
+      return 'Ongoing'; // Default to ongoing for project income
+    }
+    return 'Completed'; // Non-project income is considered completed
+  };
 
-  const filteredPayments = paymentData.filter(payment => payment.status === activeTab);
+  const filteredIncomes = (incomes || []).filter(income => {
+    const status = getIncomeStatus(income);
+    return activeTab === 'Ongoing' ? status === 'Ongoing' :
+           activeTab === 'Pending' ? false : // No pending logic for now
+           status === 'Completed';
+  });
 
-  const renderPaymentItem = (payment: any) => (
-    <View key={payment.id} style={styles.paymentItemContainer}>
-      <View style={styles.paymentItem}>
+  const formatCurrency = (amount: number): string => {
+    return `₹${amount.toLocaleString()}`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const renderIncomeItem = (income: Income) => (
+    <View key={income.id} style={styles.paymentItemContainer}>
+      <TouchableOpacity
+        style={styles.paymentItem}
+        onPress={() => handleIncomePress(income)}
+        activeOpacity={0.7}
+      >
         <View style={styles.paymentAvatar}>
-          <Text style={styles.paymentAvatarText}>{payment.name.charAt(0)}</Text>
+          <Text style={styles.paymentAvatarText}>
+            {income.project?.name?.charAt(0) || income.description.charAt(0)}
+          </Text>
         </View>
         <View style={styles.paymentInfo}>
-          <Text style={styles.paymentName}>{payment.name}</Text>
-          <Text style={styles.paymentAmount}>{payment.amount}</Text>
-          <Text style={styles.paymentDate}>{payment.date}</Text>
+          <Text style={styles.paymentName}>
+            {income.project?.name || income.description}
+          </Text>
+          <Text style={styles.paymentAmount}>{formatCurrency(income.amount)}</Text>
+          <Text style={styles.paymentDate}>{formatDate(income.date)}</Text>
+          {income.project && (
+            <Text style={styles.projectCode}>{income.project.code}</Text>
+          )}
         </View>
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleEditIncome(income);
+          }}
+        >
           <MaterialIcons name="edit" size={16} color="#666" />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     </View>
   );
+
+  const handleIncomePress = (income: Income) => {
+    Alert.alert(
+      'Income Details',
+      `Description: ${income.description}\nAmount: ${formatCurrency(income.amount)}\nDate: ${formatDate(income.date)}${income.project ? `\nProject: ${income.project.name} (${income.project.code})` : ''}${income.note ? `\nNote: ${income.note}` : ''}`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleEditIncome = (income: Income) => {
+    Alert.alert(
+      'Edit Income',
+      `Edit ${income.description}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Edit',
+          onPress: () => {
+            // TODO: Navigate to edit income screen
+            console.log('Edit income:', income.id);
+          }
+        },
+      ]
+    );
+  };
+
+  const handleAddIncome = () => {
+    Alert.alert(
+      'Add Income',
+      'Create a new income entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: () => {
+            // TODO: Navigate to add income screen
+            console.log('Add new income');
+          }
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,7 +194,28 @@ export default function IncomeScreen() {
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#000']}
+            tintColor="#000"
+          />
+        }
+      >
+        {/* Error Display */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={loadData} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Chart Container */}
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Project Valuation Vs Payment Received</Text>
@@ -105,31 +232,58 @@ export default function IncomeScreen() {
             </View>
           </View>
 
-          {/* Simple Bar Chart */}
-          <View style={styles.barChart}>
-            <View style={styles.chartYAxis}>
-              <Text style={styles.yAxisLabel}>$50</Text>
-              <Text style={styles.yAxisLabel}>$30</Text>
-              <Text style={styles.yAxisLabel}>$10</Text>
+          {/* Chart Loading State */}
+          {isLoading ? (
+            <View style={styles.chartLoadingContainer}>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={styles.loadingText}>Loading chart data...</Text>
             </View>
-            <View style={styles.barsContainer}>
-              {[
-                { valuation: 25, received: 20, month: '10' },
-                { valuation: 40, received: 30, month: '11' },
-                { valuation: 30, received: 25, month: '12' },
-                { valuation: 35, received: 25, month: '13' },
-                { valuation: 25, received: 20, month: '14' },
-              ].map((data, index) => (
-                <View key={index} style={styles.barGroup}>
-                  <View style={styles.barPair}>
-                    <View style={[styles.bar, styles.valuationBar, { height: data.valuation * 3 }]} />
-                    <View style={[styles.bar, styles.receivedBar, { height: data.received * 3 }]} />
-                  </View>
-                  <Text style={styles.xAxisLabel}>{data.month}</Text>
-                </View>
-              ))}
+          ) : !chartData || chartData.length === 0 ? (
+            <View style={styles.emptyChartContainer}>
+              <MaterialIcons name="bar-chart" size={48} color="#ccc" />
+              <Text style={styles.emptyChartText}>No chart data available</Text>
             </View>
-          </View>
+          ) : (
+            /* Simple Bar Chart */
+            <View style={styles.barChart}>
+              <View style={styles.chartYAxis}>
+                {/* Calculate max value for Y-axis */}
+                {(() => {
+                  const maxValue = chartData && chartData.length > 0
+                    ? Math.max(...chartData.map(d => Math.max(d.valuation, d.received)))
+                    : 0;
+                  const step = Math.ceil(maxValue / 3) || 10; // Default step if maxValue is 0
+                  return [step * 3, step * 2, step].map((value, index) => (
+                    <Text key={index} style={styles.yAxisLabel}>₹{value}k</Text>
+                  ));
+                })()}
+              </View>
+              <View style={styles.barsContainer}>
+                {(chartData || []).map((data, index) => {
+                  const maxValue = Math.max(...(chartData || []).map(d => Math.max(d.valuation, d.received)));
+                  const scale = maxValue > 0 ? 100 / maxValue : 0;
+
+                  return (
+                    <View key={index} style={styles.barGroup}>
+                      <View style={styles.barPair}>
+                        <View style={[
+                          styles.bar,
+                          styles.valuationBar,
+                          { height: Math.max(data.valuation * scale * 0.8, 2) }
+                        ]} />
+                        <View style={[
+                          styles.bar,
+                          styles.receivedBar,
+                          { height: Math.max(data.received * scale * 0.8, 2) }
+                        ]} />
+                      </View>
+                      <Text style={styles.xAxisLabel}>{data.month}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Payment History Section */}
@@ -156,9 +310,26 @@ export default function IncomeScreen() {
             ))}
           </View>
 
-          {/* Payment List */}
+          {/* Income List */}
           <View style={styles.paymentList}>
-            {filteredPayments.map(renderPaymentItem)}
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#000" />
+                <Text style={styles.loadingText}>Loading income data...</Text>
+              </View>
+            ) : !filteredIncomes || filteredIncomes.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <MaterialIcons name="account-balance-wallet" size={48} color="#ccc" />
+                <Text style={styles.emptyStateTitle}>No Income Found</Text>
+                <Text style={styles.emptyStateText}>
+                  {activeTab === 'Ongoing' ? 'No ongoing income entries' :
+                   activeTab === 'Pending' ? 'No pending income entries' :
+                   'No completed income entries'}
+                </Text>
+              </View>
+            ) : (
+              (filteredIncomes || []).map(renderIncomeItem)
+            )}
           </View>
         </View>
 
@@ -167,7 +338,7 @@ export default function IncomeScreen() {
       </ScrollView>
 
       {/* Floating Add Button */}
-      <TouchableOpacity style={styles.floatingButton}>
+      <TouchableOpacity style={styles.floatingButton} onPress={handleAddIncome}>
         <MaterialIcons name="add" size={28} color="#000" />
       </TouchableOpacity>
 
@@ -401,6 +572,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
+  projectCode: {
+    fontSize: 12,
+    color: '#4285F4',
+    fontWeight: '500',
+    marginTop: 2,
+  },
   editButton: {
     padding: 5,
   },
@@ -425,5 +602,70 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  errorContainer: {
+    backgroundColor: '#ff4444',
+    margin: 20,
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+  },
+  retryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chartLoadingContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyChartContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyChartText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#999',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStateContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

@@ -16,7 +16,9 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": "./android/app/src/main/res/xml/network_security_config.xml"
     },
     "web": {
       "bundler": "metro",

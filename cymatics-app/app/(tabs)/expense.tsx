@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,13 +7,65 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
+  TextInput,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
+import FinancialService, { Expense } from '@/src/services/FinancialService';
 
 export default function ExpenseScreen() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  const loadExpenses = async (search?: string) => {
+    try {
+      setError(null);
+      if (!search) setIsLoading(true);
+
+      const response = await FinancialService.getExpenses({
+        search: search || undefined,
+        limit: 50,
+      });
+
+      // Ensure expenses is always an array
+      setExpenses(Array.isArray(response?.data) ? response.data : []);
+    } catch (error) {
+      console.error('Failed to load expenses:', error);
+      setError('Failed to load expenses. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsSearching(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadExpenses(searchQuery || undefined);
+    setIsRefreshing(false);
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      setIsSearching(true);
+      await loadExpenses(query.trim());
+    } else {
+      await loadExpenses();
+    }
+  };
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -23,39 +75,134 @@ export default function ExpenseScreen() {
     setIsMenuVisible(false);
   };
 
-  // Sample expense data
-  const expenseData = [
-    { id: 1, type: 'Petrol', date: '24 June 2024', amount: '$53445', icon: 'local-gas-station' },
-    { id: 2, type: 'Petrol', date: '24 June 2024', amount: '$53445', icon: 'local-gas-station' },
-    { id: 3, type: 'Petrol', date: '24 June 2024', amount: '$53445', icon: 'local-gas-station' },
-    { id: 4, type: 'Petrol', date: '24 June 2024', amount: '$53445', icon: 'local-gas-station' },
-    { id: 5, type: 'Petrol', date: '24 June 2024', amount: '$53445', icon: 'local-gas-station' },
-    { id: 6, type: 'Equipment Rental', date: '23 June 2024', amount: '$2800', icon: 'camera-alt' },
-    { id: 7, type: 'Travel', date: '22 June 2024', amount: '$1200', icon: 'flight' },
-    { id: 8, type: 'Food & Catering', date: '21 June 2024', amount: '$850', icon: 'restaurant' },
-    { id: 9, type: 'Office Supplies', date: '20 June 2024', amount: '$450', icon: 'business-center' },
-    { id: 10, type: 'Software License', date: '19 June 2024', amount: '$299', icon: 'computer' },
-    { id: 11, type: 'Marketing', date: '18 June 2024', amount: '$1500', icon: 'campaign' },
-    { id: 12, type: 'Insurance', date: '17 June 2024', amount: '$750', icon: 'security' },
-    { id: 13, type: 'Maintenance', date: '16 June 2024', amount: '$320', icon: 'build' },
-    { id: 14, type: 'Utilities', date: '15 June 2024', amount: '$180', icon: 'electrical-services' },
-    { id: 15, type: 'Training', date: '14 June 2024', amount: '$600', icon: 'school' },
-  ];
+  const formatCurrency = (amount: number): string => {
+    return `₹${amount.toLocaleString()}`;
+  };
 
-  const renderExpenseItem = (expense: any) => (
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  const getCategoryIcon = (category: string): string => {
+    const categoryIcons: Record<string, string> = {
+      'Petrol': 'local-gas-station',
+      'Fuel': 'local-gas-station',
+      'Equipment': 'camera-alt',
+      'Equipment Rental': 'camera-alt',
+      'Travel': 'flight',
+      'Transportation': 'directions-car',
+      'Food': 'restaurant',
+      'Catering': 'restaurant',
+      'Accommodation': 'hotel',
+      'Software': 'computer',
+      'License': 'verified',
+      'Marketing': 'campaign',
+      'Advertising': 'ads-click',
+      'Office': 'business',
+      'Supplies': 'inventory',
+      'Maintenance': 'build',
+      'Utilities': 'electrical-services',
+      'Insurance': 'security',
+      'Professional': 'work',
+      'Training': 'school',
+      'Other': 'category',
+    };
+
+    // Try exact match first
+    if (categoryIcons[category]) {
+      return categoryIcons[category];
+    }
+
+    // Try partial match
+    for (const [key, icon] of Object.entries(categoryIcons)) {
+      if (category.toLowerCase().includes(key.toLowerCase())) {
+        return icon;
+      }
+    }
+
+    return 'receipt'; // Default icon
+  };
+
+  const renderExpenseItem = (expense: Expense) => (
     <View key={expense.id} style={styles.expenseItemContainer}>
-      <View style={styles.expenseItem}>
+      <TouchableOpacity
+        style={styles.expenseItem}
+        onPress={() => handleExpensePress(expense)}
+        activeOpacity={0.7}
+      >
         <View style={styles.expenseIcon}>
-          <MaterialIcons name={expense.icon} size={24} color="#000" />
+          <MaterialIcons name={getCategoryIcon(expense.category) as any} size={24} color="#000" />
         </View>
         <View style={styles.expenseInfo}>
-          <Text style={styles.expenseType}>{expense.type}</Text>
-          <Text style={styles.expenseDate}>{expense.date}</Text>
+          <Text style={styles.expenseType}>{expense.description}</Text>
+          <Text style={styles.expenseCategory}>{expense.category}</Text>
+          <Text style={styles.expenseDate}>{formatDate(expense.date)}</Text>
+          {expense.project && (
+            <Text style={styles.projectCode}>{expense.project.code}</Text>
+          )}
         </View>
-        <Text style={styles.expenseAmount}>{expense.amount}</Text>
-      </View>
+        <View style={styles.expenseAmountContainer}>
+          <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleEditExpense(expense);
+            }}
+          >
+            <MaterialIcons name="edit" size={16} color="#666" />
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     </View>
   );
+
+  const handleExpensePress = (expense: Expense) => {
+    Alert.alert(
+      'Expense Details',
+      `Description: ${expense.description}\nCategory: ${expense.category}\nAmount: ${formatCurrency(expense.amount)}\nDate: ${formatDate(expense.date)}${expense.project ? `\nProject: ${expense.project.name} (${expense.project.code})` : ''}${expense.notes ? `\nNotes: ${expense.notes}` : ''}`,
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    Alert.alert(
+      'Edit Expense',
+      `Edit ${expense.description}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Edit',
+          onPress: () => {
+            // TODO: Navigate to edit expense screen
+            console.log('Edit expense:', expense.id);
+          }
+        },
+      ]
+    );
+  };
+
+  const handleAddExpense = () => {
+    Alert.alert(
+      'Add Expense',
+      'Create a new expense entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: () => {
+            // TODO: Navigate to add expense screen
+            console.log('Add new expense');
+          }
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -73,7 +220,25 @@ export default function ExpenseScreen() {
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#999" />
-          <Text style={styles.searchPlaceholder}>Search</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search expenses..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+            onSubmitEditing={() => handleSearch(searchQuery)}
+          />
+          {isSearching && (
+            <ActivityIndicator size="small" color="#999" style={styles.searchLoader} />
+          )}
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => handleSearch('')}
+              style={styles.clearSearchButton}
+            >
+              <MaterialIcons name="clear" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity style={styles.filterButton}>
           <MaterialIcons name="filter-list" size={24} color="#000" />
@@ -81,15 +246,57 @@ export default function ExpenseScreen() {
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#000']}
+            tintColor="#000"
+          />
+        }
+      >
+        {/* Error Display */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={loadExpenses} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Expense History Section */}
         <View style={styles.expenseHistorySection}>
-          <Text style={styles.sectionTitle}>Expense History</Text>
-
-          {/* Expense List */}
-          <View style={styles.expenseList}>
-            {expenseData.map(renderExpenseItem)}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Expense History</Text>
+            <Text style={styles.expenseCount}>
+              {(expenses || []).length} expense{(expenses || []).length !== 1 ? 's' : ''}
+            </Text>
           </View>
+
+          {/* Content */}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={styles.loadingText}>Loading expenses...</Text>
+            </View>
+          ) : !expenses || expenses.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <MaterialIcons name="receipt-long" size={48} color="#ccc" />
+              <Text style={styles.emptyStateTitle}>No Expenses Found</Text>
+              <Text style={styles.emptyStateText}>
+                {searchQuery ? 'Try adjusting your search terms' : 'Add your first expense to get started'}
+              </Text>
+            </View>
+          ) : (
+            /* Expense List */
+            <View style={styles.expenseList}>
+              {(expenses || []).map(renderExpenseItem)}
+            </View>
+          )}
         </View>
 
         {/* Bottom Padding */}
@@ -97,7 +304,7 @@ export default function ExpenseScreen() {
       </ScrollView>
 
       {/* Floating Add Button */}
-      <TouchableOpacity style={styles.floatingButton}>
+      <TouchableOpacity style={styles.floatingButton} onPress={handleAddExpense}>
         <MaterialIcons name="add" size={28} color="#000" />
       </TouchableOpacity>
 
@@ -150,10 +357,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     marginLeft: 10,
-    color: '#999',
+    color: '#000',
     fontSize: 16,
+  },
+  searchLoader: {
+    marginLeft: 8,
+  },
+  clearSearchButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   filterButton: {
     padding: 8,
@@ -165,11 +380,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 10,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#000',
-    marginBottom: 15,
+  },
+  expenseCount: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
   expenseList: {
     gap: 10,
@@ -207,14 +432,33 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 2,
   },
+  expenseCategory: {
+    fontSize: 12,
+    color: '#4285F4',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
   expenseDate: {
     fontSize: 14,
     color: '#999',
+  },
+  projectCode: {
+    fontSize: 12,
+    color: '#4285F4',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  expenseAmountContainer: {
+    alignItems: 'flex-end',
   },
   expenseAmount: {
     fontSize: 18,
     fontWeight: '600',
     color: '#000',
+    marginBottom: 4,
+  },
+  editButton: {
+    padding: 4,
   },
   floatingButton: {
     position: 'absolute',
@@ -237,5 +481,55 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  errorContainer: {
+    backgroundColor: '#ff4444',
+    margin: 20,
+    padding: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+  },
+  retryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyStateContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

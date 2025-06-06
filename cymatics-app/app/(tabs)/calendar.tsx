@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,15 +7,24 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
+import { calendarService, CalendarEventData, DayEvents } from '@/src/services/CalendarService';
+
+// Use types from CalendarService
 
 export default function CalendarScreen() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(17);
+  const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState<DayEvents>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -27,24 +36,80 @@ export default function CalendarScreen() {
 
   const handleDatePress = (date: number) => {
     setSelectedDate(date);
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), date);
-    setCurrentDate(newDate);
   };
 
   const handlePrevMonth = () => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     setCurrentDate(newDate);
     setSelectedDate(1); // Reset to first day of new month
+    loadCalendarData(newDate); // Load data for new month
   };
 
   const handleNextMonth = () => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
     setCurrentDate(newDate);
     setSelectedDate(1); // Reset to first day of new month
+    loadCalendarData(newDate); // Load data for new month
   };
 
-  // Days of the week
-  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  // Load calendar data for the current month
+  const loadCalendarData = async (date: Date = currentDate) => {
+    try {
+      setError(null);
+
+      // Validate the date
+      if (!date || isNaN(date.getTime())) {
+        console.warn('Invalid date provided to loadCalendarData, using current date');
+        date = new Date();
+      }
+
+      console.log('Loading calendar data for:', date.getFullYear(), date.getMonth() + 1);
+
+      // Get all events for the month from the backend
+      const monthEvents = await calendarService.getAllEventsForMonth(
+        date.getFullYear(),
+        date.getMonth()
+      );
+
+      console.log('Loaded calendar events:', monthEvents);
+
+      // Ensure monthEvents is a valid object
+      if (monthEvents && typeof monthEvents === 'object') {
+        setEvents(monthEvents);
+      } else {
+        console.warn('Invalid events data received, using empty object');
+        setEvents({});
+      }
+
+    } catch (error) {
+      console.error('Error loading calendar data:', error);
+      setError('Failed to load calendar data. Please try again.');
+      setEvents({}); // Set empty events on error
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Handle event press (for future implementation)
+  const handleEventPress = (event: CalendarEventData) => {
+    console.log('Event pressed:', event);
+    // TODO: Navigate to event details or show modal
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadCalendarData();
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadCalendarData();
+  }, []);
+
+  // Days of the week (starting with Monday like in the image)
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Month names
   const monthNames = [
@@ -55,17 +120,41 @@ export default function CalendarScreen() {
   // Day names for current date display
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  // Generate calendar dates dynamically
+  // Generate calendar dates dynamically (starting with Monday)
   const generateCalendarDates = () => {
+    try {
+      if (!currentDate || isNaN(currentDate.getTime())) {
+        console.warn('Invalid currentDate, using current date');
+        const fallbackDate = new Date();
+        return generateCalendarDatesForDate(fallbackDate);
+      }
+
+      return generateCalendarDatesForDate(currentDate);
+    } catch (error) {
+      console.error('Error generating calendar dates:', error);
+      return []; // Return empty array on error
+    }
+  };
+
+  const generateCalendarDatesForDate = (date: Date) => {
     const dates = [];
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const year = date.getFullYear();
+    const month = date.getMonth();
 
     // Get first day of the month and number of days in month
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+    if (isNaN(firstDay.getTime()) || isNaN(lastDay.getTime())) {
+      console.warn('Invalid date calculations for:', year, month);
+      return [];
+    }
+
+    let firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const daysInMonth = lastDay.getDate();
+
+    // Adjust for Monday start (0 = Monday, 6 = Sunday)
+    firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
@@ -103,41 +192,107 @@ export default function CalendarScreen() {
            currentDate.getFullYear() === today.getFullYear();
   };
 
-  const renderCalendarDate = (date: number | null, index: number) => {
-    if (date === null) {
-      return <View key={index} style={styles.emptyDate} />;
+  // Get events for a specific date
+  const getEventsForDate = (date: number): CalendarEventData[] => {
+    try {
+      if (!date || isNaN(date) || !currentDate || isNaN(currentDate.getTime())) {
+        return [];
+      }
+
+      const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), date);
+      if (isNaN(targetDate.getTime())) {
+        return [];
+      }
+
+      const dateKey = targetDate.toISOString().split('T')[0];
+
+      if (!events || typeof events !== 'object') {
+        return [];
+      }
+
+      return Array.isArray(events[dateKey]) ? events[dateKey] : [];
+    } catch (error) {
+      console.warn('Error getting events for date:', date, error);
+      return [];
     }
+  };
 
-    const isSelected = date === selectedDate;
-    const isTodayDate = isToday(date);
-    const isHighlighted = isSelected && !isTodayDate; // Selected dates get highlighted
+  // Render event chip
+  const renderEventChip = (event: CalendarEventData, index: number) => {
+    try {
+      if (!event) {
+        return null;
+      }
 
-    return (
-      <TouchableOpacity
-        key={index}
-        style={styles.dateContainer}
-        onPress={() => handleDatePress(date)}
-      >
-        {(isTodayDate || isHighlighted) && (
-          <View
-            style={[
-              styles.dateCircle,
-              isTodayDate && styles.todayCircle,
-              isHighlighted && !isTodayDate && styles.highlightedCircle,
-            ]}
-          />
-        )}
-        <Text
-          style={[
-            styles.dateText,
-            isTodayDate && styles.todayDateText,
-            isHighlighted && !isTodayDate && styles.highlightedDateText,
-          ]}
+      const eventId = event.id || `event-${index}`;
+      const eventTitle = event.projectCode || event.title || 'Untitled Event';
+      const eventColor = event.color || '#95A5A6';
+
+      return (
+        <TouchableOpacity
+          key={`${eventId}-${index}`}
+          style={[styles.eventChip, { backgroundColor: eventColor }]}
+          onPress={() => handleEventPress(event)}
         >
-          {date}
-        </Text>
-      </TouchableOpacity>
-    );
+          <Text style={styles.eventChipText} numberOfLines={1}>
+            {eventTitle}
+          </Text>
+        </TouchableOpacity>
+      );
+    } catch (error) {
+      console.warn('Error rendering event chip:', event, error);
+      return null;
+    }
+  };
+
+  const renderCalendarDate = (date: number | null, index: number) => {
+    try {
+      if (date === null || date === undefined) {
+        return <View key={`empty-${index}`} style={styles.emptyDate} />;
+      }
+
+      const isSelected = date === selectedDate;
+      const isTodayDate = isToday(date);
+      const dayEvents = getEventsForDate(date);
+      const visibleEvents = Array.isArray(dayEvents) ? dayEvents.slice(0, 2) : []; // Show max 2 events
+      const moreCount = Math.max(0, dayEvents.length - visibleEvents.length);
+
+      return (
+        <TouchableOpacity
+          key={`date-${index}-${date}`}
+          style={styles.dateContainer}
+          onPress={() => handleDatePress(date)}
+        >
+          {/* Date number */}
+          <View style={styles.dateHeader}>
+            <Text
+              style={[
+                styles.dateText,
+                isTodayDate && styles.todayDateText,
+                isSelected && !isTodayDate && styles.selectedDateText,
+              ]}
+            >
+              {date}
+            </Text>
+            {isTodayDate && <View style={styles.todayIndicator} />}
+          </View>
+
+          {/* Events */}
+          <View style={styles.eventsContainer}>
+            {visibleEvents.map((event, eventIndex) => {
+              const renderedChip = renderEventChip(event, eventIndex);
+              return renderedChip;
+            }).filter(Boolean)}
+            {moreCount > 0 && (
+              <Text style={styles.moreEventsText}>+{moreCount} more</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    } catch (error) {
+      console.warn('Error rendering calendar date:', date, error);
+      return <View key={`error-${index}`} style={styles.emptyDate} />;
+    }
   };
 
   return (
@@ -160,22 +315,33 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Date Navigation */}
-        <View style={styles.dateNavigation}>
-          <Text style={styles.currentDate}>{formatCurrentDate()}</Text>
-          <View style={styles.monthNavigation}>
-            <TouchableOpacity style={styles.monthSelector}>
-              <Text style={styles.monthText}>{getCurrentMonthName()}</Text>
-              <MaterialIcons name="keyboard-arrow-down" size={20} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
-              <MaterialIcons name="chevron-left" size={24} color="#000" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
-              <MaterialIcons name="chevron-right" size={24} color="#000" />
-            </TouchableOpacity>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#000']}
+            tintColor="#000"
+          />
+        }
+      >
+        {/* Month Navigation */}
+        <View style={styles.monthNavigation}>
+          <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
+            <MaterialIcons name="chevron-left" size={24} color="#000" />
+          </TouchableOpacity>
+
+          <View style={styles.monthYearContainer}>
+            <Text style={styles.monthYearText}>
+              {getCurrentMonthName()} {currentDate.getFullYear()}
+            </Text>
           </View>
+
+          <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
+            <MaterialIcons name="chevron-right" size={24} color="#000" />
+          </TouchableOpacity>
         </View>
 
         {/* Calendar */}
@@ -189,10 +355,31 @@ export default function CalendarScreen() {
             ))}
           </View>
 
-          {/* Calendar Grid */}
-          <View style={styles.calendarGrid}>
-            {calendarDates.map((date, index) => renderCalendarDate(date, index))}
-          </View>
+          {/* Loading State */}
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#000" />
+              <Text style={styles.loadingText}>Loading calendar...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={() => loadCalendarData()}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* Calendar Grid */
+            <View style={styles.calendarGrid}>
+              {Array.isArray(calendarDates) && calendarDates.length > 0 ? (
+                calendarDates.map((date, index) => renderCalendarDate(date, index))
+              ) : (
+                <View style={styles.calendarErrorContainer}>
+                  <Text style={styles.calendarErrorText}>Unable to generate calendar</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Bottom Padding */}
@@ -252,57 +439,49 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  dateNavigation: {
+  monthNavigation: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 30,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    marginBottom: 10,
   },
-  currentDate: {
-    fontSize: 24,
+  monthYearContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  monthYearText: {
+    fontSize: 20,
     fontWeight: '600',
     color: '#000',
   },
-  monthNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  monthSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  monthText: {
-    fontSize: 16,
-    color: '#000',
-    marginRight: 5,
-  },
   navButton: {
     padding: 8,
-    marginHorizontal: 5,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
   },
   calendarContainer: {
     backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 15,
-    padding: 20,
+    marginHorizontal: 10,
+    borderRadius: 12,
+    padding: 15,
   },
   daysOfWeekContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   dayOfWeekContainer: {
     flex: 1,
     alignItems: 'center',
   },
   dayOfWeekText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#666',
   },
   calendarGrid: {
@@ -311,44 +490,103 @@ const styles = StyleSheet.create({
   },
   emptyDate: {
     width: '14.28%',
-    height: 50,
+    height: 80,
   },
   dateContainer: {
     width: '14.28%',
-    height: 50,
+    height: 80,
+    padding: 4,
+    marginBottom: 5,
+  },
+  dateHeader: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 4,
     position: 'relative',
   },
   dateText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#000',
     fontWeight: '400',
-    zIndex: 2,
-  },
-  dateCircle: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    zIndex: 1,
-  },
-  todayCircle: {
-    backgroundColor: '#000',
   },
   todayDateText: {
     color: '#fff',
     fontWeight: '600',
   },
-  highlightedCircle: {
-    borderWidth: 2,
-    borderColor: '#000',
-    backgroundColor: 'transparent',
-  },
-  highlightedDateText: {
-    color: '#000',
+  selectedDateText: {
+    color: '#007AFF',
     fontWeight: '600',
+  },
+  todayIndicator: {
+    position: 'absolute',
+    top: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#000',
+    zIndex: -1,
+  },
+  eventsContainer: {
+    flex: 1,
+  },
+  eventChip: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    marginBottom: 1,
+  },
+  eventChipText: {
+    fontSize: 9,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  moreEventsText: {
+    fontSize: 8,
+    color: '#666',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  retryButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  calendarErrorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  calendarErrorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   bottomPadding: {
     height: 50,

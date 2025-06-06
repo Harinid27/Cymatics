@@ -1,6 +1,54 @@
-# Cymatics App - Signup Screen
+# Cymatics App - Frontend Documentation
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app) that implements a signup screen for the Cymatics app.
+## Overview
+
+Cymatics is a comprehensive business management React Native application designed for creative professionals and service providers. The app provides tools for project management, financial tracking, client management, and business analytics. This is currently a **static frontend implementation** without backend integration.
+
+## Technology Stack
+
+- **Framework**: React Native with Expo
+- **Navigation**: Expo Router (file-based routing)
+- **UI Components**: React Native core components with Material Icons
+- **State Management**: React Context API
+- **Image Handling**: Expo Image Picker
+- **Animations**: React Native Animated API
+- **Platform**: Cross-platform (iOS, Android, Web)
+
+## Project Structure
+
+```
+cymatics-app/
+├── app/                          # Main application screens
+│   ├── (tabs)/                   # Tab-based navigation screens
+│   │   ├── _layout.tsx          # Tab layout configuration
+│   │   ├── index.tsx            # Dashboard/Home screen
+│   │   ├── projects.tsx         # Projects management
+│   │   ├── income.tsx           # Income tracking
+│   │   ├── expense.tsx          # Expense tracking
+│   │   └── calendar.tsx         # Calendar view
+│   ├── _layout.tsx              # Root layout
+│   ├── index.js                 # Splash screen
+│   ├── signup-animated.js       # Animated signup screen
+│   ├── register.js              # Registration screen
+│   ├── status.tsx               # Project status tracking
+│   ├── clients.tsx              # Client management
+│   ├── pending-payments.tsx     # Payment tracking
+│   ├── budget.tsx               # Budget management
+│   ├── profile.tsx              # User profile
+│   └── chat.tsx                 # Chat interface
+├── components/                   # Reusable components
+│   ├── MenuDrawer.tsx           # Navigation drawer
+│   ├── CymaticsLogo.js          # Logo component
+│   └── ui/                      # UI components
+├── contexts/                     # React Context providers
+│   └── UserContext.tsx          # User data management
+├── constants/                    # App constants
+│   └── Colors.ts                # Color definitions
+├── hooks/                        # Custom hooks
+└── assets/                       # Static assets
+    ├── images/                   # Image assets
+    └── fonts/                    # Font files
+```
 
 ## Get started
 
@@ -23,37 +71,19 @@ In the output, you'll find options to open the app in a
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Features
-
-- Clean signup screen UI matching the provided design
-- Email input field with placeholder
-- Sign up with email button
-- Google sign-in option
-- Terms of Service and Privacy Policy links
-- Custom Cymatics logo component
-
-## Get a fresh project
-
-When you're ready, run:
-
+## Development Commands
 ```bash
+# Start development server
+npm start
+
+# Reset project (if needed)
 npm run reset-project
+
+# Run linting
+npm run lint
+
+# Platform-specific builds
+npm run android
+npm run ios
+npm run web
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

@@ -19,9 +19,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '@/contexts/UserContext';
 
 export default function ProfileScreen() {
-  const { userData, updateUserData, setProfileImage } = useUser();
+  const { userData, updateUserData, setProfileImage, isLoading, error, clearError } = useUser();
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleBack = () => {
     router.back();
@@ -79,22 +80,67 @@ export default function ProfileScreen() {
     }
   };
 
+  const validateField = (field: string, value: string): string | null => {
+    switch (field) {
+      case 'name':
+        if (!value.trim()) return 'Name cannot be empty';
+        if (value.trim().length < 2) return 'Name must be at least 2 characters';
+        if (value.trim().length > 50) return 'Name must be less than 50 characters';
+        break;
+      case 'username':
+        if (!value.trim()) return 'Username cannot be empty';
+        if (value.includes('@')) return 'Username should not include @ symbol';
+        if (value.trim().length < 3) return 'Username must be at least 3 characters';
+        if (value.trim().length > 20) return 'Username must be less than 20 characters';
+        if (!/^[a-zA-Z0-9_]+$/.test(value.trim())) return 'Username can only contain letters, numbers, and underscores';
+        break;
+      case 'email':
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value.trim())) return 'Please enter a valid email address';
+        break;
+      case 'bio':
+        if (value.length > 200) return 'Bio must be less than 200 characters';
+        break;
+      case 'phone':
+        if (value.trim() && !/^\+?[\d\s\-\(\)]+$/.test(value.trim())) return 'Please enter a valid phone number';
+        break;
+    }
+    return null;
+  };
+
   const handleEditField = (field: string, currentValue: string) => {
     setEditingField(field);
     setEditValue(currentValue);
+    setValidationError(null);
+    clearError();
   };
 
-  const handleSaveEdit = () => {
-    if (editingField) {
-      updateUserData({ [editingField]: editValue });
+  const handleSaveEdit = async () => {
+    if (!editingField) return;
+
+    const trimmedValue = editValue.trim();
+    const validationErr = validateField(editingField, trimmedValue);
+
+    if (validationErr) {
+      setValidationError(validationErr);
+      return;
+    }
+
+    try {
+      await updateUserData({ [editingField]: trimmedValue });
       setEditingField(null);
       setEditValue('');
+      setValidationError(null);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
     }
   };
 
   const handleCancelEdit = () => {
     setEditingField(null);
     setEditValue('');
+    setValidationError(null);
+    clearError();
   };
 
   const handleTabPress = (route: string) => {
@@ -103,13 +149,23 @@ export default function ProfileScreen() {
 
   const renderProfileField = (label: string, value: string, field: string, editable: boolean = true, noBorder: boolean = false) => (
     <TouchableOpacity
-      style={[styles.profileField, noBorder && styles.noBorder]}
-      onPress={() => editable && handleEditField(field, value)}
-      disabled={!editable}
+      style={[
+        styles.profileField,
+        noBorder && styles.noBorder,
+        isLoading && styles.disabledContainer
+      ]}
+      onPress={() => editable && !isLoading && handleEditField(field, value)}
+      disabled={!editable || isLoading}
     >
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
-      {editable && <MaterialIcons name="chevron-right" size={24} color="#999" />}
+      <Text style={[styles.fieldLabel, isLoading && styles.disabledText]}>{label}</Text>
+      <Text style={[styles.fieldValue, isLoading && styles.disabledText]}>{value || 'Not set'}</Text>
+      {editable && (
+        <MaterialIcons
+          name="chevron-right"
+          size={24}
+          color={isLoading ? "#ccc" : "#999"}
+        />
+      )}
     </TouchableOpacity>
   );
 
@@ -126,38 +182,63 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Error Display */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={clearError} style={styles.errorCloseButton}>
+              <MaterialIcons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Profile Image Section */}
         <View style={styles.profileImageSection}>
-          <TouchableOpacity style={styles.profileImageContainer} onPress={handleImagePicker}>
-            {userData.profileImage ? (
+          <TouchableOpacity
+            style={[styles.profileImageContainer, isLoading && styles.disabledContainer]}
+            onPress={handleImagePicker}
+            disabled={isLoading}
+          >
+            {userData?.profileImage ? (
               <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
             ) : (
               <View style={styles.defaultProfileImage}>
                 <MaterialIcons name="person" size={40} color="#000" />
               </View>
             )}
+            {isLoading && (
+              <View style={styles.loadingOverlay}>
+                <MaterialIcons name="hourglass-empty" size={24} color="#666" />
+              </View>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleImagePicker}>
-            <Text style={styles.editImageText}>Edit profile image</Text>
+          <TouchableOpacity onPress={handleImagePicker} disabled={isLoading}>
+            <Text style={[styles.editImageText, isLoading && styles.disabledText]}>
+              Edit profile image
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Profile Fields */}
         <View style={styles.profileFields}>
-          {renderProfileField('Name', userData.name, 'name')}
-          {renderProfileField('Username', userData.username, 'username')}
-          {renderProfileField('Email', userData.email, 'email', false)}
+          {userData && (
+            <>
+              {renderProfileField('Name', userData.name || '', 'name')}
+              {renderProfileField('Username', userData.username || '', 'username')}
+              {renderProfileField('Email', userData.email || '', 'email', false)}
 
-          {/* Links Section */}
-          {renderProfileField('Links', userData.links.join(', '), 'links', false, true)}
+              {/* Links Section */}
+              {renderProfileField('Links', userData.links?.join(', ') || '', 'links', false, true)}
 
-          {/* Add Link Button - positioned below Links value */}
-          <TouchableOpacity style={styles.addLinkButton}>
-            <MaterialIcons name="add" size={20} color="#999" />
-            <Text style={styles.addLinkText}>Add link</Text>
-          </TouchableOpacity>
+              {/* Add Link Button - positioned below Links value */}
+              <TouchableOpacity style={styles.addLinkButton} disabled={isLoading}>
+                <MaterialIcons name="add" size={20} color={isLoading ? "#ccc" : "#999"} />
+                <Text style={[styles.addLinkText, isLoading && styles.disabledText]}>Add link</Text>
+              </TouchableOpacity>
 
-          {renderProfileField('Bio', userData.bio, 'bio')}
+              {renderProfileField('Bio', userData.bio || '', 'bio')}
+            </>
+          )}
         </View>
 
         {/* Bottom padding for tab bar */}
@@ -175,19 +256,45 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit {editingField}</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[
+                styles.modalInput,
+                validationError && styles.modalInputError
+              ]}
               value={editValue}
-              onChangeText={setEditValue}
+              onChangeText={(text) => {
+                setEditValue(text);
+                setValidationError(null);
+              }}
               placeholder={`Enter ${editingField}`}
               multiline={editingField === 'bio'}
               numberOfLines={editingField === 'bio' ? 4 : 1}
+              editable={!isLoading}
             />
+            {validationError && (
+              <Text style={styles.validationError}>{validationError}</Text>
+            )}
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButton} onPress={handleCancelEdit}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
+              <TouchableOpacity
+                style={[styles.modalButton, isLoading && styles.disabledButton]}
+                onPress={handleCancelEdit}
+                disabled={isLoading}
+              >
+                <Text style={[styles.modalButtonText, isLoading && styles.disabledText]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleSaveEdit}>
-                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save</Text>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  isLoading && styles.disabledButton
+                ]}
+                onPress={handleSaveEdit}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <MaterialIcons name="hourglass-empty" size={16} color="#fff" />
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -402,5 +509,52 @@ const styles = StyleSheet.create({
   },
   activeTabLabel: {
     color: '#000000',
+  },
+  errorContainer: {
+    backgroundColor: '#ff4444',
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+  },
+  errorCloseButton: {
+    padding: 4,
+  },
+  disabledContainer: {
+    opacity: 0.6,
+  },
+  disabledText: {
+    color: '#ccc',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 40,
+  },
+  modalInputError: {
+    borderColor: '#ff4444',
+    borderWidth: 2,
+  },
+  validationError: {
+    color: '#ff4444',
+    fontSize: 14,
+    marginBottom: 16,
+    marginTop: -8,
   },
 });

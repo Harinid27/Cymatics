@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,14 +7,26 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { router } from 'expo-router';
+import DashboardService, { DashboardStats, TodaySchedule, IncomeExpenseChart, ProjectDetailsChart, ExpenseBreakdownChart } from '../../src/services/DashboardService';
 
 export default function DashboardScreen() {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState<TodaySchedule[]>([]);
+  const [incomeExpenseChart, setIncomeExpenseChart] = useState<IncomeExpenseChart | null>(null);
+  const [projectDetailsChart, setProjectDetailsChart] = useState<ProjectDetailsChart | null>(null);
+  const [expenseBreakdownChart, setExpenseBreakdownChart] = useState<ExpenseBreakdownChart | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -38,6 +50,76 @@ export default function DashboardScreen() {
 
   const handleMessagePress = () => {
     router.push('/chat');
+  };
+
+  // Load dashboard data
+  const loadDashboardData = async () => {
+    try {
+      setError(null);
+      const data = await DashboardService.getAllDashboardData();
+
+      console.log('Dashboard data received:', {
+        stats: data.stats,
+        todayScheduleCount: data.todaySchedule.length,
+        incomeExpenseChart: data.incomeExpenseChart,
+        projectDetailsChart: data.projectDetailsChart,
+        expenseBreakdownChart: data.expenseBreakdownChart,
+      });
+
+      setDashboardStats(data.stats);
+      setTodaySchedule(data.todaySchedule);
+      setIncomeExpenseChart(data.incomeExpenseChart);
+      setProjectDetailsChart(data.projectDetailsChart);
+      setExpenseBreakdownChart(data.expenseBreakdownChart);
+
+      // Only set error if ALL data is missing (indicating connection issue)
+      if (!data.stats && data.todaySchedule.length === 0 &&
+          !data.incomeExpenseChart && !data.projectDetailsChart && !data.expenseBreakdownChart) {
+        setError('Unable to load dashboard data. Please check your connection.');
+      }
+    } catch (error) {
+      console.error('Dashboard load error:', error);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setChartsLoading(false);
+    }
+  };
+
+  // Handle pull-to-refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadDashboardData();
+    setIsRefreshing(false);
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Format currency
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Format date and time
+  const formatDateTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: '2-digit',
+    }) + ' | ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   };
 
   return (
@@ -95,26 +177,52 @@ export default function DashboardScreen() {
         >
           {/* Income Cards */}
           <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Overall Income</Text>
-              <Text style={styles.statValue}>$8,70,000</Text>
-              <Text style={styles.statChange}>+20% over month</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Total Expense</Text>
-              <Text style={styles.statValue}>$2,40,235</Text>
-              <Text style={styles.statChange}>+33% over month</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Current Balance</Text>
-              <Text style={styles.statValue}>$1,50,000</Text>
-              <Text style={styles.statChange}>June</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Pending Amount</Text>
-              <Text style={styles.statValue}>$4,50,000</Text>
-              <Text style={styles.statChange}>84 Projects</Text>
-            </View>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4285F4" />
+                <Text style={styles.loadingText}>Loading dashboard...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Overall Income</Text>
+                  <Text style={styles.statValue}>
+                    {dashboardStats ? formatCurrency(dashboardStats.totalIncome) : '$0'}
+                  </Text>
+                  <Text style={styles.statChange}>Total earned</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Total Expense</Text>
+                  <Text style={styles.statValue}>
+                    {dashboardStats ? formatCurrency(dashboardStats.totalExpense) : '$0'}
+                  </Text>
+                  <Text style={styles.statChange}>Total spent</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Current Balance</Text>
+                  <Text style={styles.statValue}>
+                    {dashboardStats ? formatCurrency(dashboardStats.currentBalance) : '$0'}
+                  </Text>
+                  <Text style={styles.statChange}>Available</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Pending Amount</Text>
+                  <Text style={styles.statValue}>
+                    {dashboardStats ? formatCurrency(dashboardStats.pendingAmount) : '$0'}
+                  </Text>
+                  <Text style={styles.statChange}>
+                    {dashboardStats ? `${dashboardStats.totalProjects} Projects` : '0 Projects'}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
 
@@ -122,28 +230,59 @@ export default function DashboardScreen() {
       </View>
 
       {/* Vertical Scrollable Content - Analytics only */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#4285F4']}
+            tintColor="#4285F4"
+          />
+        }
+      >
 
         {/* Today Shoot */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today Shoot</Text>
-            <TouchableOpacity>
+            <Text style={styles.sectionTitle}>Today's Schedule</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')}>
               <Text style={styles.seeAllText}>See all</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.shootCard}>
-            <View style={styles.shootImage}>
-              <IconSymbol name="camera.fill" size={40} color="#4285F4" />
+          {todaySchedule.length > 0 ? (
+            todaySchedule.slice(0, 1).map((schedule) => (
+              <View key={schedule.id} style={styles.shootCard}>
+                <View style={styles.shootImage}>
+                  <IconSymbol name="camera.fill" size={40} color="#4285F4" />
+                </View>
+                <View style={styles.shootInfo}>
+                  <Text style={styles.shootTitle}>{schedule.title}</Text>
+                  <Text style={styles.shootCompany}>{schedule.client || 'Client TBD'}</Text>
+                  <Text style={styles.shootCode}>{schedule.projectCode || 'No project code'}</Text>
+                  <Text style={styles.shootTime}>
+                    {formatDateTime(schedule.startTime)}
+                  </Text>
+                  {schedule.location && (
+                    <Text style={styles.shootLocation}>📍 {schedule.location}</Text>
+                  )}
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyStateCard}>
+              <IconSymbol name="calendar" size={40} color="#ccc" />
+              <Text style={styles.emptyStateText}>No shoots scheduled for today</Text>
+              <TouchableOpacity
+                style={styles.addScheduleButton}
+                onPress={() => router.push('/(tabs)/calendar')}
+              >
+                <Text style={styles.addScheduleButtonText}>Add Schedule</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.shootInfo}>
-              <Text style={styles.shootTitle}>Real Estate Shoot</Text>
-              <Text style={styles.shootCompany}>GK Photography (12)</Text>
-              <Text style={styles.shootCode}>CYM - 81</Text>
-              <Text style={styles.shootTime}>26/07/24 | 11:00 AM</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Upcoming Shoots */}
@@ -197,93 +336,175 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* Simple Bar Chart */}
-          <View style={styles.barChart}>
-            <View style={styles.chartYAxis}>
-              <Text style={styles.yAxisLabel}>$50</Text>
-              <Text style={styles.yAxisLabel}>$30</Text>
-              <Text style={styles.yAxisLabel}>$10</Text>
+          {chartsLoading ? (
+            <View style={styles.chartLoadingContainer}>
+              <ActivityIndicator size="large" color="#4285F4" />
+              <Text style={styles.chartLoadingText}>Loading chart data...</Text>
             </View>
-            <View style={styles.barsContainer}>
-              {[
-                { income: 25, expense: 20, month: '10' },
-                { income: 40, expense: 30, month: '11' },
-                { income: 30, expense: 25, month: '12' },
-                { income: 35, expense: 25, month: '13' },
-                { income: 25, expense: 20, month: '14' },
-              ].map((data, index) => (
-                <View key={index} style={styles.barGroup}>
-                  <View style={styles.barPair}>
-                    <View style={[styles.bar, styles.incomeBar, { height: data.income * 3 }]} />
-                    <View style={[styles.bar, styles.expenseBar, { height: data.expense * 3 }]} />
-                  </View>
-                  <Text style={styles.xAxisLabel}>{data.month}</Text>
+          ) : incomeExpenseChart ? (
+            <View style={styles.barChart}>
+              <View style={styles.chartYAxis}>
+                <Text style={styles.yAxisLabel}>$50k</Text>
+                <Text style={styles.yAxisLabel}>$30k</Text>
+                <Text style={styles.yAxisLabel}>$10k</Text>
+              </View>
+              <View style={styles.barsContainer}>
+                {(incomeExpenseChart.combined?.labels || []).slice(0, 6).map((label, index) => {
+                  const incomeValue = incomeExpenseChart.income?.datasets?.[0]?.data?.[index] || 0;
+                  const expenseValue = incomeExpenseChart.expense?.datasets?.[0]?.data?.[index] || 0;
+                  const allValues = [
+                    ...(incomeExpenseChart.combined?.datasets?.[0]?.data || []),
+                    ...(incomeExpenseChart.combined?.datasets?.[1]?.data || [])
+                  ];
+                  const maxValue = Math.max(...allValues, 1); // Ensure maxValue is at least 1
+                  const incomeHeight = maxValue > 0 ? Math.max((incomeValue / maxValue) * 100, 5) : 5;
+                  const expenseHeight = maxValue > 0 ? Math.max((expenseValue / maxValue) * 100, 5) : 5;
+
+                  return (
+                    <View key={index} style={styles.barGroup}>
+                      <View style={styles.barPair}>
+                        <View style={[styles.bar, styles.incomeBar, { height: incomeHeight }]} />
+                        <View style={[styles.bar, styles.expenseBar, { height: expenseHeight }]} />
+                      </View>
+                      <Text style={styles.xAxisLabel}>{label.slice(0, 3)}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Show empty state message when all data is zero */}
+              {(() => {
+                const allChartValues = [
+                  ...(incomeExpenseChart.combined?.datasets?.[0]?.data || []),
+                  ...(incomeExpenseChart.combined?.datasets?.[1]?.data || [])
+                ];
+                return allChartValues.every(val => val === 0);
+              })() && (
+                <View style={styles.emptyChartMessage}>
+                  <Text style={styles.emptyChartText}>No income/expense data yet</Text>
                 </View>
-              ))}
+              )}
             </View>
-          </View>
+          ) : (
+            <View style={styles.chartErrorContainer}>
+              <Text style={styles.chartErrorText}>
+                {error ? 'Backend connection needed for chart data' : 'Unable to load chart data'}
+              </Text>
+              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
+                <Text style={styles.chartRetryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Project Details Chart */}
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Project Details</Text>
-          <View style={styles.lineChart}>
-            {/* Simple line chart representation */}
-            <View style={styles.lineChartArea}>
-              <View style={styles.lineChartLine} />
-              <View style={styles.lineChartDot} />
+          {chartsLoading ? (
+            <View style={styles.chartLoadingContainer}>
+              <ActivityIndicator size="large" color="#4285F4" />
+              <Text style={styles.chartLoadingText}>Loading project data...</Text>
             </View>
-            <View style={styles.lineChartXAxis}>
-              {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map((month, index) => (
-                <Text key={index} style={styles.lineChartXLabel}>{month}</Text>
-              ))}
+          ) : projectDetailsChart ? (
+            <View style={styles.lineChart}>
+              <View style={styles.lineChartArea}>
+                <View style={styles.lineChartLine} />
+                <View style={styles.lineChartDot} />
+              </View>
+              <View style={styles.lineChartXAxis}>
+                {(projectDetailsChart.byMonth?.labels || []).slice(0, 8).map((month, index) => (
+                  <Text key={index} style={styles.lineChartXLabel}>{month.slice(0, 3)}</Text>
+                ))}
+              </View>
+              <View style={styles.projectStatsContainer}>
+                <Text style={styles.projectStatsText}>
+                  Total Projects: {projectDetailsChart.byMonth?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 0}
+                </Text>
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.chartErrorContainer}>
+              <Text style={styles.chartErrorText}>
+                {error ? 'Backend connection needed for project data' : 'Unable to load project data'}
+              </Text>
+              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
+                <Text style={styles.chartRetryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Expense Details */}
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Expense Details</Text>
-          <View style={styles.pieChartContainer}>
-            {/* Simple but effective pie chart */}
-            <View style={styles.pieChartWrapper}>
-              {/* Full circle background */}
-              <View style={styles.pieBackground} />
+          {chartsLoading ? (
+            <View style={styles.chartLoadingContainer}>
+              <ActivityIndicator size="large" color="#4285F4" />
+              <Text style={styles.chartLoadingText}>Loading expense data...</Text>
+            </View>
+          ) : expenseBreakdownChart ? (
+            <View style={styles.pieChartContainer}>
+              {/* Simple but effective pie chart */}
+              <View style={styles.pieChartWrapper}>
+                {/* Full circle background */}
+                <View style={styles.pieBackground} />
 
-              {/* Colored segments to match reference image */}
-              <View style={[styles.pieSlice, { backgroundColor: '#FFB3BA', transform: [{ rotate: '0deg' }] }]} />
-              <View style={[styles.pieSlice, { backgroundColor: '#FF8C00', transform: [{ rotate: '108deg' }] }]} />
-              <View style={[styles.pieSlice, { backgroundColor: '#4285F4', transform: [{ rotate: '180deg' }] }]} />
-              <View style={[styles.pieSlice, { backgroundColor: '#34A853', transform: [{ rotate: '252deg' }] }]} />
-              <View style={[styles.pieSlice, { backgroundColor: '#FF6B9D', transform: [{ rotate: '306deg' }] }]} />
-              <View style={[styles.pieSlice, { backgroundColor: '#E8E8E8', transform: [{ rotate: '324deg' }] }]} />
+                {/* Colored segments based on real data */}
+                {(expenseBreakdownChart.byCategory?.datasets?.[0]?.backgroundColor || []).slice(0, 6).map((color, index) => {
+                  const rotation = (index * 60) % 360; // Distribute evenly
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.pieSlice,
+                        {
+                          backgroundColor: color,
+                          transform: [{ rotate: `${rotation}deg` }]
+                        }
+                      ]}
+                    />
+                  );
+                })}
 
-              {/* Center white circle for donut effect */}
-              <View style={styles.pieCenter} />
-            </View>
+                {/* Center white circle for donut effect */}
+                <View style={styles.pieCenter} />
+              </View>
 
-            {/* Custom labels positioned around the chart */}
-            <View style={[styles.pieLabel, styles.label1]}>
-              <Text style={styles.pieLabelPercent}>30%</Text>
-            </View>
-            <View style={[styles.pieLabel, styles.label2]}>
-              <Text style={styles.pieLabelPercent}>20%</Text>
-            </View>
-            <View style={[styles.pieLabel, styles.label3]}>
-              <Text style={styles.pieLabelPercent}>20%</Text>
-            </View>
-            <View style={[styles.pieLabel, styles.label4]}>
-              <Text style={styles.pieLabelPercent}>15%</Text>
-            </View>
-            <View style={[styles.pieLabel, styles.label5]}>
-              <Text style={styles.pieLabelPercent}>15%</Text>
-            </View>
-            <View style={[styles.pieLabel, styles.label6]}>
-              <Text style={styles.pieLabelPercent}>10%</Text>
-            </View>
+              {/* Dynamic labels based on real data */}
+              {(expenseBreakdownChart.byCategory?.labels || []).slice(0, 6).map((label, index) => {
+                const value = expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.[index] || 0;
+                const total = expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 1;
+                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
 
-            <Text style={styles.pieChartValue}>$1250</Text>
-          </View>
+                return (
+                  <View key={index} style={[styles.pieLabel, styles[`label${index + 1}` as keyof typeof styles]]}>
+                    <Text style={styles.pieLabelPercent}>{percentage}%</Text>
+                    <Text style={styles.pieLabelCategory}>{label.slice(0, 8)}</Text>
+                  </View>
+                );
+              })}
+
+              <Text style={styles.pieChartValue}>
+                {formatCurrency(expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 0)}
+              </Text>
+
+              {/* Show empty state message when all data is zero */}
+              {(expenseBreakdownChart.byCategory?.datasets?.[0]?.data || []).every(val => val === 0) && (
+                <View style={styles.emptyChartMessage}>
+                  <Text style={styles.emptyChartText}>No expense data yet</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.chartErrorContainer}>
+              <Text style={styles.chartErrorText}>
+                {error ? 'Backend connection needed for expense data' : 'Unable to load expense data'}
+              </Text>
+              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
+                <Text style={styles.chartRetryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Bottom padding for tab bar */}
@@ -399,6 +620,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 15,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  retryButton: {
+    backgroundColor: '#4285F4',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   statCard: {
     width: 160,
@@ -625,6 +881,51 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 5,
   },
+  pieLabelCategory: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 2,
+  },
+  chartLoadingContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chartLoadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  chartErrorContainer: {
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chartErrorText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    marginBottom: 10,
+  },
+  chartRetryButton: {
+    backgroundColor: '#4285F4',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  chartRetryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  projectStatsContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  projectStatsText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
   sectionContainer: {
     marginHorizontal: 20,
     marginTop: 10,
@@ -687,6 +988,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
+  shootLocation: {
+    fontSize: 12,
+    color: '#4285F4',
+    marginTop: 2,
+  },
+  emptyStateCard: {
+    backgroundColor: '#fff',
+    padding: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 10,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  addScheduleButton: {
+    backgroundColor: '#4285F4',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addScheduleButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
   upcomingShoot: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -727,5 +1059,19 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  emptyChartMessage: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -50 }, { translateY: -10 }],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyChartText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });
