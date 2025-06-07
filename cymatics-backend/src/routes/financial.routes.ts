@@ -76,6 +76,8 @@ router.put(
   financialController.updateIncome
 );
 
+
+
 /**
  * @route   DELETE /api/financial/income/:id
  * @desc    Delete income entry
@@ -183,6 +185,8 @@ router.put(
  * @desc    Delete expense entry
  * @access  Private
  */
+
+
 router.delete(
   '/expenses/:id',
   validateParams(Joi.object({ id: commonSchemas.id })),

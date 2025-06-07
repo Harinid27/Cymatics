@@ -10,50 +10,102 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import FinancialService, { Income, IncomeChartData } from '@/src/services/FinancialService';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function IncomeScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Ongoing');
   const [incomes, setIncomes] = useState<Income[]>([]);
+  const [filteredIncomes, setFilteredIncomes] = useState<Income[]>([]);
   const [chartData, setChartData] = useState<IncomeChartData['chartData']>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  // Apply filters when incomes or activeTab changes
+  useEffect(() => {
+    if (incomes.length > 0) {
+      applyFilters(incomes, activeTab);
+    }
+  }, [incomes, activeTab]);
+
+  // Refresh data when screen comes into focus (e.g., returning from create screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData(); // Refresh income data
+    }, [])
+  );
+
+  const loadData = async (search?: string) => {
     try {
       setError(null);
-      setIsLoading(true);
+      if (!search) setIsLoading(true);
 
       const [incomesResponse, chartResponse] = await Promise.all([
-        FinancialService.getIncomes({ limit: 50 }),
+        FinancialService.getIncomes({
+          search: search || undefined,
+          limit: 50
+        }),
         FinancialService.getIncomeChartData('6months'),
       ]);
 
+      console.log('Income API Response:', incomesResponse);
+      console.log('Chart API Response:', chartResponse);
+
       // Ensure data is always an array
-      setIncomes(Array.isArray(incomesResponse?.data) ? incomesResponse.data : []);
+      const incomesData = Array.isArray(incomesResponse?.data) ? incomesResponse.data : [];
+      setIncomes(incomesData);
+      // Don't call applyFilters here - let useEffect handle it
       setChartData(Array.isArray(chartResponse?.chartData) ? chartResponse.chartData : []);
+
+      console.log('Incomes set:', incomesData);
+      console.log('Chart data set:', Array.isArray(chartResponse?.chartData) ? chartResponse.chartData : []);
     } catch (error) {
       console.error('Failed to load income data:', error);
       setError('Failed to load income data. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsSearching(false);
     }
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadData();
+    await loadData(searchQuery || undefined);
     setIsRefreshing(false);
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      setIsSearching(true);
+      await loadData(query.trim());
+    } else {
+      await loadData();
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    applyFilters(incomes, tab);
   };
 
   const handleMenuPress = () => {
@@ -64,21 +116,80 @@ export default function IncomeScreen() {
     setIsMenuVisible(false);
   };
 
-  // Filter incomes based on active tab (for demo purposes, we'll categorize by project status)
-  const getIncomeStatus = (income: Income): string => {
-    if (income.projectIncome && income.project) {
-      // This is a simplified status mapping - in real app, you'd have actual status from projects
-      return 'Ongoing'; // Default to ongoing for project income
-    }
-    return 'Completed'; // Non-project income is considered completed
-  };
+  // Apply filters based on active tab
+  const applyFilters = (incomeList: Income[], tab: string) => {
+    let filtered = [...incomeList];
 
-  const filteredIncomes = (incomes || []).filter(income => {
-    const status = getIncomeStatus(income);
-    return activeTab === 'Ongoing' ? status === 'Ongoing' :
-           activeTab === 'Pending' ? false : // No pending logic for now
-           status === 'Completed';
-  });
+    console.log(`Applying filter for tab: ${tab}, total incomes: ${incomeList.length}`);
+
+    // Debug: Log sample income data structure
+    if (incomeList.length > 0) {
+      console.log('Sample income data:', {
+        projectIncome: incomeList[0].projectIncome,
+        project: incomeList[0].project,
+        hasProject: !!incomeList[0].project,
+        projectStatus: incomeList[0].project?.status,
+        pendingAmt: incomeList[0].project?.pendingAmt
+      });
+    }
+
+    switch (tab) {
+      case 'Ongoing':
+        // Project income from active/ongoing projects
+        filtered = filtered.filter(income => {
+          if (!income.projectIncome || !income.project) return false;
+
+          const status = income.project.status?.toLowerCase() || '';
+          const isActiveStatus = status === 'active' || status === 'ongoing' || status === 'in_progress';
+
+          console.log(`Income ${income.id}: status=${status}, isActive=${isActiveStatus}`);
+          return isActiveStatus;
+        });
+        break;
+
+      case 'Pending':
+        // Project income from pending projects OR projects with pending amounts
+        filtered = filtered.filter(income => {
+          if (!income.project) return false;
+
+          const status = income.project.status?.toLowerCase() || '';
+          const isPendingStatus = status === 'pending' || status === 'on_hold' || status === 'draft';
+          const hasPendingAmount = income.project.pendingAmt && income.project.pendingAmt > 0;
+
+          console.log(`Income ${income.id}: status=${status}, pendingAmt=${income.project.pendingAmt}, isPending=${isPendingStatus || hasPendingAmount}`);
+          return isPendingStatus || hasPendingAmount;
+        });
+        break;
+
+      case 'Completed':
+        // Non-project income OR completed project income OR projects with no pending amount
+        filtered = filtered.filter(income => {
+          // Non-project income is always considered completed
+          if (!income.projectIncome) {
+            console.log(`Income ${income.id}: non-project income, included in completed`);
+            return true;
+          }
+
+          if (!income.project) return false;
+
+          const status = income.project.status?.toLowerCase() || '';
+          const isCompletedStatus = status === 'completed' || status === 'finished';
+          const noPendingAmount = !income.project.pendingAmt || income.project.pendingAmt <= 0;
+
+          console.log(`Income ${income.id}: status=${status}, pendingAmt=${income.project.pendingAmt}, isCompleted=${isCompletedStatus || noPendingAmount}`);
+          return isCompletedStatus || noPendingAmount;
+        });
+        break;
+
+      default:
+        // Show all income if no specific tab
+        console.log('No filter applied, showing all incomes');
+        break;
+    }
+
+    console.log(`Filter result: ${filtered.length} incomes after filtering for ${tab}`);
+    setFilteredIncomes(filtered);
+  };
 
   const formatCurrency = (amount: number): string => {
     return `₹${amount.toLocaleString()}`;
@@ -137,56 +248,51 @@ export default function IncomeScreen() {
   };
 
   const handleEditIncome = (income: Income) => {
-    Alert.alert(
-      'Edit Income',
-      `Edit ${income.description}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Edit',
-          onPress: () => {
-            // TODO: Navigate to edit income screen
-            console.log('Edit income:', income.id);
-          }
-        },
-      ]
-    );
+    router.push(`/edit-income?id=${income.id}`);
   };
 
   const handleAddIncome = () => {
-    Alert.alert(
-      'Add Income',
-      'Create a new income entry?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: () => {
-            // TODO: Navigate to add income screen
-            console.log('Add new income');
-          }
-        },
-      ]
-    );
+    router.push('/create-income');
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
-          <MaterialIcons name="menu" size={24} color="#000" />
+          <MaterialIcons name="menu" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Income</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Income</Text>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#999" />
-          <Text style={styles.searchPlaceholder}>Search</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search income..."
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+            onSubmitEditing={() => handleSearch(searchQuery)}
+          />
+          {isSearching && (
+            <ActivityIndicator size="small" color="#999" style={styles.searchLoader} />
+          )}
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => handleSearch('')}
+              style={styles.clearSearchButton}
+            >
+              <MaterialIcons name="clear" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity style={styles.filterButton}>
           <MaterialIcons name="filter-list" size={24} color="#000" />
@@ -301,7 +407,7 @@ export default function IncomeScreen() {
               <TouchableOpacity
                 key={tab}
                 style={[styles.tab, activeTab === tab && styles.activeTab]}
-                onPress={() => setActiveTab(tab)}
+                onPress={() => handleTabChange(tab)}
               >
                 <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
                   {tab}
@@ -357,7 +463,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 40,
     paddingBottom: 15,
     backgroundColor: '#fff',
   },
@@ -391,10 +496,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     marginLeft: 10,
-    color: '#999',
+    color: '#000',
     fontSize: 16,
+  },
+  searchLoader: {
+    marginLeft: 8,
+  },
+  clearSearchButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   filterButton: {
     padding: 8,

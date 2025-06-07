@@ -155,18 +155,26 @@ export const clientSchemas = {
 // Project validation schemas
 export const projectSchemas = {
   create: Joi.object({
-    name: Joi.string().max(100).optional().allow(''),
+    name: Joi.string().max(100).required(),
     company: Joi.string().max(100).optional().allow(''),
     type: Joi.string().max(50).optional().allow(''),
     status: Joi.string().max(50).optional().allow(''),
-    shootStartDate: Joi.date().iso().optional(),
-    shootEndDate: Joi.date().iso().optional(),
-    amount: Joi.number().integer().min(0).default(0),
+    shootStartDate: Joi.alternatives().try(
+      Joi.date().iso(),
+      Joi.string().allow('')
+    ).optional(),
+    shootEndDate: Joi.alternatives().try(
+      Joi.date().iso(),
+      Joi.string().allow('')
+    ).optional(),
+    amount: Joi.number().min(0).default(0),
     location: Joi.string().max(200).optional().allow(''),
     address: Joi.string().max(500).optional().allow(''),
+    latitude: Joi.number().optional(),
+    longitude: Joi.number().optional(),
     outsourcing: Joi.boolean().default(false),
     reference: Joi.string().optional().allow(''),
-    outsourcingAmt: Joi.number().integer().min(0).default(0),
+    outsourcingAmt: Joi.number().min(0).default(0),
     outFor: Joi.string().max(100).optional().allow(''),
     outClient: Joi.string().max(100).optional().allow(''),
     outsourcingPaid: Joi.boolean().default(false),
@@ -178,14 +186,22 @@ export const projectSchemas = {
     company: Joi.string().max(100).optional().allow(''),
     type: Joi.string().max(50).optional().allow(''),
     status: Joi.string().max(50).optional().allow(''),
-    shootStartDate: Joi.date().iso().optional(),
-    shootEndDate: Joi.date().iso().optional(),
-    amount: Joi.number().integer().min(0).optional(),
+    shootStartDate: Joi.alternatives().try(
+      Joi.date().iso(),
+      Joi.string().allow('')
+    ).optional(),
+    shootEndDate: Joi.alternatives().try(
+      Joi.date().iso(),
+      Joi.string().allow('')
+    ).optional(),
+    amount: Joi.number().min(0).optional(),
     location: Joi.string().max(200).optional().allow(''),
     address: Joi.string().max(500).optional().allow(''),
+    latitude: Joi.number().optional(),
+    longitude: Joi.number().optional(),
     outsourcing: Joi.boolean().optional(),
     reference: Joi.string().optional().allow(''),
-    outsourcingAmt: Joi.number().integer().min(0).optional(),
+    outsourcingAmt: Joi.number().min(0).optional(),
     outFor: Joi.string().max(100).optional().allow(''),
     outClient: Joi.string().max(100).optional().allow(''),
     outsourcingPaid: Joi.boolean().optional(),
@@ -198,7 +214,7 @@ export const projectSchemas = {
     status: Joi.string().optional(),
     company: Joi.string().optional(),
     page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(10),
+    limit: Joi.number().integer().min(1).max(10000).default(10),
   }),
 };
 

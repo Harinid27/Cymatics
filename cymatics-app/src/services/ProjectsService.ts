@@ -80,6 +80,8 @@ export interface CreateProjectData {
   amount?: number;
   location?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   outsourcing?: boolean;
   reference?: string;
   outsourcingAmt?: number;
@@ -118,10 +120,10 @@ class ProjectsService {
       console.log('ProjectsService API response:', response);
 
       if (response.success) {
-        // Return the data even if it's empty - this is a successful response
-        return response.data || {
-          projects: [],
-          pagination: {
+        // The backend returns projects directly, not wrapped in another data property
+        return {
+          projects: Array.isArray(response.data) ? response.data : [],
+          pagination: response.pagination || {
             page: 1,
             limit: 10,
             total: 0,
@@ -134,6 +136,33 @@ class ProjectsService {
       return null;
     } catch (error) {
       console.error('Projects fetch error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all projects without pagination (for maps)
+   */
+  async getAllProjects(): Promise<Project[] | null> {
+    try {
+      const response = await ApiService.get<Project[]>(
+        envConfig.PROJECTS_ENDPOINT,
+        {
+          limit: 5000, // Increased limit within validation range
+          page: 1
+        }
+      );
+
+      console.log('ProjectsService getAllProjects API response:', response);
+
+      if (response.success) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+
+      console.error('Failed to fetch all projects:', response.error);
+      return null;
+    } catch (error) {
+      console.error('All projects fetch error:', error);
       return null;
     }
   }
@@ -217,6 +246,48 @@ class ProjectsService {
     } catch (error) {
       console.error('Project deletion error:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get project by ID
+   */
+  async getProjectById(id: string): Promise<Project | null> {
+    try {
+      const response = await ApiService.get<Project>(
+        `${envConfig.PROJECTS_ENDPOINT}/${id}`
+      );
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch project by ID:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Project fetch by ID error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get project by code
+   */
+  async getProjectByCode(code: string): Promise<Project | null> {
+    try {
+      const response = await ApiService.get<Project>(
+        `${envConfig.PROJECTS_ENDPOINT}/code/${code}`
+      );
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch project by code:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Project fetch by code error:', error);
+      return null;
     }
   }
 

@@ -122,6 +122,8 @@ router.put(
   projectController.updateProjectStatus
 );
 
+
+
 /**
  * @route   DELETE /api/projects/:id
  * @desc    Delete project

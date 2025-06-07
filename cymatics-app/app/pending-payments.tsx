@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,283 +7,343 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { paymentsService, Payment, PaymentStats } from '@/src/services/PaymentsService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function PendingPaymentsScreen() {
-  const [activeTab, setActiveTab] = useState('Ongoing');
+  const { colors } = useTheme();
+  const [activeTab, setActiveTab] = useState<'ongoing' | 'pending' | 'completed'>('ongoing');
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [stats, setStats] = useState<PaymentStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modal states
+  const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [newStatus, setNewStatus] = useState<'ongoing' | 'pending' | 'completed'>('pending');
 
   const handleBackPress = () => {
     router.back();
   };
 
-  const handleEditPress = (paymentId: string) => {
-    // Handle edit action
-    console.log('Edit payment:', paymentId);
+  // Load payments data
+  const loadPayments = async (status?: 'ongoing' | 'pending' | 'completed') => {
+    try {
+      setError(null);
+
+      const targetStatus = status || activeTab;
+      const response = await paymentsService.getPaymentsByStatus(targetStatus, 1, 50);
+
+      if (response.success) {
+        setPayments(response.data.payments);
+      } else {
+        setError(response.message);
+        setPayments([]);
+      }
+    } catch (error) {
+      console.error('Error loading payments:', error);
+      setError('Failed to load payments. Please try again.');
+      setPayments([]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
-  // Sample payment data
-  const paymentData = [
-    // Ongoing payments
-    {
-      id: '1',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '2',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '3',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '4',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '5',
-      name: 'Rajesh Kumar',
-      amount: '$3850',
-      date: '22 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '6',
-      name: 'Priya Sharma',
-      amount: '$5200',
-      date: '20 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '7',
-      name: 'Amit Singh',
-      amount: '$2900',
-      date: '18 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '8',
-      name: 'Neha Patel',
-      amount: '$4100',
-      date: '16 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '9',
-      name: 'Vikram Joshi',
-      amount: '$3750',
-      date: '14 April 2024',
-      status: 'Ongoing'
-    },
-    {
-      id: '10',
-      name: 'Sunita Rao',
-      amount: '$4500',
-      date: '12 April 2024',
-      status: 'Ongoing'
-    },
+  // Load payment statistics
+  const loadStats = async () => {
+    try {
+      const statsData = await paymentsService.getPaymentStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading payment stats:', error);
+    }
+  };
 
-    // Pending payments
-    {
-      id: '11',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '12',
-      name: 'Arjun Mehta',
-      amount: '$3200',
-      date: '23 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '13',
-      name: 'Kavya Reddy',
-      amount: '$2800',
-      date: '21 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '14',
-      name: 'Rohit Gupta',
-      amount: '$3900',
-      date: '19 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '15',
-      name: 'Deepika Nair',
-      amount: '$4600',
-      date: '17 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '16',
-      name: 'Manish Agarwal',
-      amount: '$3300',
-      date: '15 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '17',
-      name: 'Pooja Verma',
-      amount: '$2700',
-      date: '13 April 2024',
-      status: 'Pending'
-    },
-    {
-      id: '18',
-      name: 'Sanjay Iyer',
-      amount: '$4800',
-      date: '11 April 2024',
-      status: 'Pending'
-    },
+  // Handle tab change
+  const handleTabChange = (tab: 'ongoing' | 'pending' | 'completed') => {
+    setActiveTab(tab);
+    setIsLoading(true);
+    loadPayments(tab);
+  };
 
-    // Completed payments
-    {
-      id: '19',
-      name: 'Kedarkantha',
-      amount: '$4237',
-      date: '24 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '20',
-      name: 'Ravi Krishnan',
-      amount: '$3500',
-      date: '10 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '21',
-      name: 'Anita Desai',
-      amount: '$4200',
-      date: '08 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '22',
-      name: 'Suresh Pillai',
-      amount: '$3800',
-      date: '06 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '23',
-      name: 'Meera Jain',
-      amount: '$2950',
-      date: '04 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '24',
-      name: 'Kiran Bhat',
-      amount: '$4400',
-      date: '02 April 2024',
-      status: 'Completed'
-    },
-    {
-      id: '25',
-      name: 'Rahul Saxena',
-      amount: '$3650',
-      date: '31 March 2024',
-      status: 'Completed'
-    },
-    {
-      id: '26',
-      name: 'Shreya Kapoor',
-      amount: '$5100',
-      date: '29 March 2024',
-      status: 'Completed'
-    },
-    {
-      id: '27',
-      name: 'Arun Malhotra',
-      amount: '$2600',
-      date: '27 March 2024',
-      status: 'Completed'
-    },
-    {
-      id: '28',
-      name: 'Divya Sinha',
-      amount: '$4000',
-      date: '25 March 2024',
-      status: 'Completed'
-    },
-  ];
+  // Handle refresh
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadPayments();
+    loadStats();
+  };
 
-  const filteredPayments = paymentData.filter(payment => payment.status === activeTab);
+  // Handle edit/status change
+  const handleEditPress = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setNewStatus(payment.status);
+    setIsStatusModalVisible(true);
+  };
 
-  const renderPaymentItem = (payment: any) => (
-    <View key={payment.id} style={styles.paymentCard}>
-      <View style={styles.paymentAvatar}>
-        <Text style={styles.paymentAvatarText}>{payment.name.charAt(0)}</Text>
+  // Handle status update
+  const handleStatusUpdate = async () => {
+    if (!selectedPayment) return;
+
+    try {
+      const updatedPayment = await paymentsService.updatePaymentStatus(
+        selectedPayment.id,
+        newStatus
+      );
+
+      if (updatedPayment) {
+        Alert.alert('Success', 'Payment status updated successfully');
+        setIsStatusModalVisible(false);
+        loadPayments(); // Refresh the list
+        loadStats(); // Refresh stats
+      } else {
+        Alert.alert('Error', 'Failed to update payment status');
+      }
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      Alert.alert('Error', 'Failed to update payment status. Please try again.');
+    }
+  };
+
+  // Handle payment deletion
+  const handleDeletePayment = async (payment: Payment) => {
+    Alert.alert(
+      'Delete Payment',
+      `Are you sure you want to delete the payment for ${payment.clientName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const success = await paymentsService.deletePayment(payment.id);
+
+              if (success) {
+                Alert.alert('Success', 'Payment deleted successfully');
+                loadPayments(); // Refresh the list
+                loadStats(); // Refresh stats
+              } else {
+                Alert.alert('Error', 'Failed to delete payment');
+              }
+            } catch (error) {
+              console.error('Error deleting payment:', error);
+              Alert.alert('Error', 'Failed to delete payment. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadPayments();
+    loadStats();
+  }, []);
+
+  // Format currency
+  const formatCurrency = (amount: number): string => {
+    return `$${amount.toLocaleString()}`;
+  };
+
+  // Format date
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const renderPaymentItem = (payment: Payment) => (
+    <View key={payment.id} style={[styles.paymentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.paymentAvatar, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.paymentAvatarText, { color: colors.text }]}>{payment.clientName.charAt(0)}</Text>
       </View>
       <View style={styles.paymentInfo}>
-        <Text style={styles.paymentName}>{payment.name}</Text>
-        <Text style={styles.paymentAmount}>{payment.amount}</Text>
-        <Text style={styles.paymentDate}>{payment.date}</Text>
+        <Text style={[styles.paymentName, { color: colors.text }]}>{payment.clientName}</Text>
+        <Text style={[styles.paymentAmount, { color: colors.text }]}>{formatCurrency(payment.amount)}</Text>
+        <Text style={[styles.paymentDate, { color: colors.muted }]}>{formatDate(payment.date)}</Text>
+        {payment.description && (
+          <Text style={[styles.paymentDescription, { color: colors.muted }]}>{payment.description}</Text>
+        )}
       </View>
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => handleEditPress(payment.id)}
-      >
-        <MaterialIcons name="edit" size={20} color="#000" />
-      </TouchableOpacity>
+      <View style={styles.paymentActions}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => handleEditPress(payment)}
+        >
+          <MaterialIcons name="edit" size={20} color={colors.text} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeletePayment(payment)}
+        >
+          <MaterialIcons name="delete" size={20} color={colors.text} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pending Payments</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Pending Payments</Text>
       </View>
+
+      {/* Statistics Summary */}
+      {stats && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.totalPayments}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{formatCurrency(stats.totalAmount)}</Text>
+            <Text style={styles.statLabel}>Amount</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.pendingPayments}</Text>
+            <Text style={styles.statLabel}>Pending</Text>
+          </View>
+        </View>
+      )}
 
       {/* Tab Navigation */}
       <View style={styles.tabsContainer}>
-        {['Ongoing', 'Pending', 'Completed'].map((tab) => (
+        {[
+          { key: 'ongoing', label: 'Ongoing' },
+          { key: 'pending', label: 'Pending' },
+          { key: 'completed', label: 'Completed' }
+        ].map((tab) => (
           <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+            onPress={() => handleTabChange(tab.key as 'ongoing' | 'pending' | 'completed')}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab}
+            <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Payment List */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Loading payments...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => loadPayments()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#000']}
+              tintColor="#000"
+            />
+          }
+        >
+          {payments.length > 0 ? (
+            payments.map(renderPaymentItem)
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="payment" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No {activeTab} payments found</Text>
+              <Text style={styles.emptySubtext}>
+                {activeTab === 'pending'
+                  ? 'All payments are up to date!'
+                  : `No ${activeTab} payments at the moment.`}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Status Update Modal */}
+      <Modal
+        visible={isStatusModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsStatusModalVisible(false)}
       >
-        {filteredPayments.map(renderPaymentItem)}
-      </ScrollView>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setIsStatusModalVisible(false)}>
+              <Text style={styles.modalCancelButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Update Payment Status</Text>
+            <TouchableOpacity onPress={handleStatusUpdate}>
+              <Text style={styles.modalSaveButton}>Save</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            {selectedPayment && (
+              <>
+                <Text style={styles.modalPaymentName}>{selectedPayment.clientName}</Text>
+                <Text style={styles.modalPaymentAmount}>
+                  {formatCurrency(selectedPayment.amount)}
+                </Text>
+
+                <Text style={styles.modalSectionTitle}>Payment Status</Text>
+
+                {['ongoing', 'pending', 'completed'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusOption,
+                      newStatus === status && styles.selectedStatusOption
+                    ]}
+                    onPress={() => setNewStatus(status as 'ongoing' | 'pending' | 'completed')}
+                  >
+                    <Text style={[
+                      styles.statusOptionText,
+                      newStatus === status && styles.selectedStatusOptionText
+                    ]}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                    {newStatus === status && (
+                      <MaterialIcons name="check" size={20} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -388,8 +448,176 @@ const styles = StyleSheet.create({
   paymentDate: {
     fontSize: 12,
     color: '#999',
+    marginBottom: 2,
+  },
+  paymentDescription: {
+    fontSize: 11,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  paymentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   editButton: {
     padding: 8,
+    marginRight: 4,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  // Statistics
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    paddingVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  // Loading and Error States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  modalCancelButton: {
+    fontSize: 16,
+    color: '#666',
+  },
+  modalSaveButton: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalPaymentName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 8,
+  },
+  modalPaymentAmount: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#dc3545',
+    marginBottom: 30,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 15,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  selectedStatusOption: {
+    backgroundColor: '#000',
+  },
+  statusOptionText: {
+    fontSize: 16,
+    color: '#000',
+    fontWeight: '500',
+  },
+  selectedStatusOptionText: {
+    color: '#fff',
   },
 });

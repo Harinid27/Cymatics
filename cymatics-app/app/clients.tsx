@@ -19,8 +19,14 @@ import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { router } from 'expo-router';
 import ClientsService, { Client } from '@/src/services/ClientsService';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/contexts/ThemeContext';
+import CustomHeader from '@/src/components/CustomHeader';
 
 export default function ClientsScreen() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,6 +39,13 @@ export default function ClientsScreen() {
     loadClients();
   }, []);
 
+  // Refresh data when screen comes into focus (e.g., returning from create screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadClients(); // Refresh clients list
+    }, [])
+  );
+
   const loadClients = async (search?: string) => {
     try {
       setError(null);
@@ -42,6 +55,10 @@ export default function ClientsScreen() {
         search: search || undefined,
         limit: 50, // Load more clients for better UX
       });
+
+      console.log('Clients API Response:', response);
+      console.log('Clients data:', response?.clients);
+      console.log('Clients pagination:', response?.pagination);
 
       // Ensure clients is always an array
       setClients(Array.isArray(response?.clients) ? response.clients : []);
@@ -115,21 +132,7 @@ export default function ClientsScreen() {
   };
 
   const handleEditPress = (client: Client) => {
-    // Navigate to edit client screen (to be implemented)
-    Alert.alert(
-      'Edit Client',
-      `Edit ${client.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Edit',
-          onPress: () => {
-            // TODO: Navigate to edit screen
-            console.log('Edit client:', client.id);
-          }
-        },
-      ]
-    );
+    router.push(`/edit-client?id=${client.id}`);
   };
 
   const handleClientPress = (client: Client) => {
@@ -220,22 +223,12 @@ export default function ClientsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.leftSection}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <MaterialIcons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Clients</Text>
-        </View>
-        <View style={styles.rightSection}>
-          <Text style={styles.clientCount}>
-            {(clients || []).length} client{(clients || []).length !== 1 ? 's' : ''}
-          </Text>
-        </View>
-      </View>
+      <CustomHeader
+        title="Clients"
+        subtitle={`${(clients || []).length} client${(clients || []).length !== 1 ? 's' : ''}`}
+        showBackButton={true}
+        onBackPress={handleBackPress}
+      />
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -292,6 +285,15 @@ export default function ClientsScreen() {
         />
       )}
 
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => router.push('/create-client')}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="add" size={24} color="#fff" />
+      </TouchableOpacity>
+
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
     </SafeAreaView>
@@ -303,36 +305,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
-  },
-  leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  rightSection: {
-    alignItems: 'flex-end',
-  },
-  clientCount: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  backButton: {
-    padding: 5,
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-  },
+
   clientsList: {
     flex: 1,
     paddingHorizontal: 20,
@@ -467,5 +440,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
   },
 });

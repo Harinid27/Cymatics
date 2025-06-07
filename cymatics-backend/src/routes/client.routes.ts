@@ -93,6 +93,8 @@ router.put(
   clientController.updateClient
 );
 
+
+
 /**
  * @route   DELETE /api/clients/:id
  * @desc    Delete client

@@ -1,7 +1,20 @@
 import { prisma } from '@/config/database';
 import { logger } from '@/utils/logger';
 
+// Frontend-compatible interface
 export interface DashboardStats {
+  totalIncome: number;
+  totalExpense: number;
+  currentBalance: number;
+  pendingAmount: number;
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  totalClients: number;
+}
+
+// Internal detailed interface for comprehensive data
+export interface DetailedDashboardStats {
   overview: {
     totalProjects: number;
     totalClients: number;
@@ -33,9 +46,73 @@ export interface DashboardStats {
 
 class DashboardService {
   /**
-   * Get comprehensive dashboard statistics
+   * Get frontend-compatible dashboard statistics
    */
   async getDashboardStats(): Promise<DashboardStats> {
+    try {
+      const [
+        incomeStats,
+        expenseStats,
+        projectStats,
+        clientCount,
+      ] = await Promise.all([
+        prisma.income.aggregate({
+          _sum: { amount: true },
+        }),
+        prisma.expense.aggregate({
+          _sum: { amount: true },
+        }),
+        prisma.project.aggregate({
+          _count: true,
+          _sum: {
+            amount: true,
+            pendingAmt: true,
+          },
+        }),
+        prisma.client.count(),
+      ]);
+
+      // Get project status counts
+      const [activeProjectsCount, completedProjectsCount] = await Promise.all([
+        prisma.project.count({
+          where: {
+            status: {
+              in: ['active', 'in_progress', 'ongoing'],
+            },
+          },
+        }),
+        prisma.project.count({
+          where: {
+            status: 'completed',
+          },
+        }),
+      ]);
+
+      const totalIncome = incomeStats._sum.amount || 0;
+      const totalExpense = expenseStats._sum.amount || 0;
+      const currentBalance = totalIncome - totalExpense;
+      const pendingAmount = projectStats._sum.pendingAmt || 0;
+
+      return {
+        totalIncome,
+        totalExpense,
+        currentBalance,
+        pendingAmount,
+        totalProjects: projectStats._count,
+        activeProjects: activeProjectsCount,
+        completedProjects: completedProjectsCount,
+        totalClients: clientCount,
+      };
+    } catch (error) {
+      logger.error('Error getting dashboard stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get comprehensive dashboard statistics (for internal use)
+   */
+  async getDetailedDashboardStats(): Promise<DetailedDashboardStats> {
     try {
       const [
         overview,
@@ -56,7 +133,7 @@ class DashboardService {
         trends,
       };
     } catch (error) {
-      logger.error('Error getting dashboard stats:', error);
+      logger.error('Error getting detailed dashboard stats:', error);
       throw error;
     }
   }
@@ -64,7 +141,7 @@ class DashboardService {
   /**
    * Get overview statistics
    */
-  private async getOverviewStats(): Promise<DashboardStats['overview']> {
+  private async getOverviewStats(): Promise<DetailedDashboardStats['overview']> {
     const [
       projectStats,
       clientCount,
@@ -101,7 +178,7 @@ class DashboardService {
   /**
    * Get recent activity
    */
-  private async getRecentActivity(): Promise<DashboardStats['recentActivity']> {
+  private async getRecentActivity(): Promise<DetailedDashboardStats['recentActivity']> {
     const [
       recentProjects,
       recentIncome,
@@ -187,7 +264,7 @@ class DashboardService {
   /**
    * Get chart data
    */
-  private async getChartData(): Promise<DashboardStats['charts']> {
+  private async getChartData(): Promise<DetailedDashboardStats['charts']> {
     const [
       monthlyRevenue,
       projectsByStatus,
@@ -275,7 +352,7 @@ class DashboardService {
   /**
    * Get trend analysis
    */
-  private async getTrends(): Promise<DashboardStats['trends']> {
+  private async getTrends(): Promise<DetailedDashboardStats['trends']> {
     const now = new Date();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -409,81 +486,65 @@ class DashboardService {
   }
 
   /**
-   * Get today's schedule for dashboard
+   * Get today's schedule for dashboard (frontend-compatible format)
    */
-  async getTodaySchedule(): Promise<{
-    todayShoot: any;
-    upcomingShots: any[];
-  }> {
+  async getTodaySchedule(): Promise<Array<{
+    id: string;
+    title: string;
+    type: string;
+    startTime: string;
+    endTime: string;
+    location?: string;
+    client?: string;
+    projectCode?: string;
+  }>> {
     try {
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      const [todayEvents, upcomingEvents] = await Promise.all([
-        prisma.calendarEvent.findFirst({
-          where: {
-            startTime: {
-              gte: startOfDay,
-              lt: endOfDay,
-            },
+      const todayEvents = await prisma.calendarEvent.findMany({
+        where: {
+          startTime: {
+            gte: startOfDay,
+            lt: endOfDay,
           },
-          orderBy: { startTime: 'asc' },
-          select: {
-            id: true,
-            title: true,
-            startTime: true,
-            endTime: true,
-          },
-        }),
-        prisma.calendarEvent.findMany({
-          where: {
-            startTime: {
-              gt: endOfDay,
-              lte: nextWeek,
-            },
-          },
-          orderBy: { startTime: 'asc' },
-          take: 5,
-          select: {
-            id: true,
-            title: true,
-            startTime: true,
-            endTime: true,
-          },
-        }),
-      ]);
+        },
+        orderBy: { startTime: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          startTime: true,
+          endTime: true,
+        },
+      });
 
-      // Format today's shoot
-      const todayShoot = todayEvents ? {
-        title: todayEvents.title || 'Photography Session',
-        company: 'Cymatics Photography', // Default company name
-        projectCode: `CYM-${todayEvents.id}`,
-        time: todayEvents.startTime.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }),
-        date: todayEvents.startTime.toLocaleDateString('en-GB'),
-      } : null;
+      // Format events for frontend
+      return todayEvents.map(event => {
+        const formattedEvent: {
+          id: string;
+          title: string;
+          type: string;
+          startTime: string;
+          endTime: string;
+          location?: string;
+          client?: string;
+          projectCode?: string;
+        } = {
+          id: event.id.toString(),
+          title: event.title || 'Photography Session',
+          type: 'shoot', // Default type
+          startTime: event.startTime.toISOString(),
+          endTime: event.endTime.toISOString(),
+          client: 'Cymatics Photography', // Default client
+          projectCode: `CYM-${event.id}`,
+        };
 
-      // Format upcoming shots
-      const upcomingShots = upcomingEvents.map(event => ({
-        title: event.title || 'Photography Session',
-        company: 'Cymatics Photography',
-        date: event.startTime.toLocaleDateString('en-GB'),
-        time: event.startTime.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }),
-      }));
+        // Only add location if it exists (CalendarEvent doesn't have location field)
+        // formattedEvent.location = undefined; // Don't set undefined explicitly
 
-      return {
-        todayShoot,
-        upcomingShots,
-      };
+        return formattedEvent;
+      });
     } catch (error) {
       logger.error('Error getting today\'s schedule:', error);
       throw error;
@@ -491,14 +552,46 @@ class DashboardService {
   }
 
   /**
-   * Get income vs expense chart data
+   * Get income vs expense chart data (frontend-compatible format)
    */
   async getIncomeExpenseChart(period: string = '6months'): Promise<{
-    chartData: { month: string; income: number; expense: number }[];
+    period: string;
+    income: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    expense: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    combined: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
   }> {
     try {
       const months = period === '12months' ? 12 : 6;
-      const chartData = [];
+      const labels: string[] = [];
+      const incomeData: number[] = [];
+      const expenseData: number[] = [];
       const now = new Date();
 
       for (let i = months - 1; i >= 0; i--) {
@@ -526,14 +619,53 @@ class DashboardService {
           }),
         ]);
 
-        chartData.push({
-          month: date.toLocaleDateString('en-US', { month: 'short' }),
-          income: incomeSum._sum.amount || 0,
-          expense: expenseSum._sum.amount || 0,
-        });
+        labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+        incomeData.push(incomeSum._sum.amount || 0);
+        expenseData.push(expenseSum._sum.amount || 0);
       }
 
-      return { chartData };
+      return {
+        period,
+        income: {
+          labels,
+          datasets: [{
+            label: 'Income',
+            data: incomeData,
+            backgroundColor: ['#4285F4'],
+            borderColor: '#4285F4',
+            borderWidth: 1,
+          }],
+        },
+        expense: {
+          labels,
+          datasets: [{
+            label: 'Expense',
+            data: expenseData,
+            backgroundColor: ['#FF6B6B'],
+            borderColor: '#FF6B6B',
+            borderWidth: 1,
+          }],
+        },
+        combined: {
+          labels,
+          datasets: [
+            {
+              label: 'Income',
+              data: incomeData,
+              backgroundColor: ['#4285F4'],
+              borderColor: '#4285F4',
+              borderWidth: 1,
+            },
+            {
+              label: 'Expense',
+              data: expenseData,
+              backgroundColor: ['#FF6B6B'],
+              borderColor: '#FF6B6B',
+              borderWidth: 1,
+            },
+          ],
+        },
+      };
     } catch (error) {
       logger.error('Error getting income vs expense chart data:', error);
       throw error;
@@ -541,13 +673,42 @@ class DashboardService {
   }
 
   /**
-   * Get project details chart data
+   * Get project details chart data (frontend-compatible format)
    */
   async getProjectDetailsChart(): Promise<{
-    chartData: { status: string; count: number; percentage: number }[];
+    byStatus: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    byType: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    byMonth: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
   }> {
     try {
-      const [statusCounts, totalProjects] = await Promise.all([
+      const [statusCounts, typeCounts, monthlyProjects] = await Promise.all([
         prisma.project.groupBy({
           by: ['status'],
           _count: true,
@@ -555,16 +716,56 @@ class DashboardService {
             status: { not: null },
           },
         }),
-        prisma.project.count(),
+        prisma.project.groupBy({
+          by: ['type'],
+          _count: true,
+          where: {
+            type: { not: null },
+          },
+        }),
+        this.getMonthlyProjectData(),
       ]);
 
-      const chartData = statusCounts.map(item => ({
-        status: item.status || 'Unknown',
-        count: item._count,
-        percentage: totalProjects > 0 ? Math.round((item._count / totalProjects) * 100) : 0,
-      }));
+      // Status chart
+      const statusLabels = statusCounts.map(item => item.status || 'Unknown');
+      const statusData = statusCounts.map(item => item._count);
 
-      return { chartData };
+      // Type chart
+      const typeLabels = typeCounts.map(item => item.type || 'Unknown');
+      const typeData = typeCounts.map(item => item._count);
+
+      return {
+        byStatus: {
+          labels: statusLabels,
+          datasets: [{
+            label: 'Projects by Status',
+            data: statusData,
+            backgroundColor: ['#4285F4', '#34A853', '#FBBC04', '#EA4335'],
+            borderColor: '#fff',
+            borderWidth: 2,
+          }],
+        },
+        byType: {
+          labels: typeLabels,
+          datasets: [{
+            label: 'Projects by Type',
+            data: typeData,
+            backgroundColor: ['#4285F4', '#34A853', '#FBBC04', '#EA4335'],
+            borderColor: '#fff',
+            borderWidth: 2,
+          }],
+        },
+        byMonth: {
+          labels: monthlyProjects.labels,
+          datasets: [{
+            label: 'Projects by Month',
+            data: monthlyProjects.data,
+            backgroundColor: ['#4285F4'],
+            borderColor: '#4285F4',
+            borderWidth: 1,
+          }],
+        },
+      };
     } catch (error) {
       logger.error('Error getting project details chart data:', error);
       throw error;
@@ -572,17 +773,46 @@ class DashboardService {
   }
 
   /**
-   * Get expense breakdown chart data
+   * Get expense breakdown chart data (frontend-compatible format)
    */
   async getExpenseBreakdownChart(period: string = '6months'): Promise<{
-    chartData: { category: string; amount: number; percentage: number }[];
+    byCategory: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    byMonth: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
+    trends: {
+      labels: string[];
+      datasets: Array<{
+        label: string;
+        data: number[];
+        backgroundColor?: string[];
+        borderColor?: string;
+        borderWidth?: number;
+      }>;
+    };
   }> {
     try {
       const months = period === '12months' ? 12 : 6;
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
-      const [categoryBreakdown, totalExpenses] = await Promise.all([
+      const [categoryBreakdown, monthlyExpenses] = await Promise.all([
         prisma.expense.groupBy({
           by: ['category'],
           _sum: { amount: true },
@@ -595,28 +825,106 @@ class DashboardService {
             _sum: { amount: 'desc' },
           },
         }),
-        prisma.expense.aggregate({
-          where: {
-            date: {
-              gte: startDate,
-            },
-          },
-          _sum: { amount: true },
-        }),
+        this.getMonthlyExpenseData(months),
       ]);
 
-      const total = totalExpenses._sum.amount || 0;
-      const chartData = categoryBreakdown.map(item => ({
-        category: item.category,
-        amount: item._sum.amount || 0,
-        percentage: total > 0 ? Math.round(((item._sum.amount || 0) / total) * 100) : 0,
-      }));
+      // Category breakdown
+      const categoryLabels = categoryBreakdown.map(item => item.category);
+      const categoryData = categoryBreakdown.map(item => item._sum.amount || 0);
 
-      return { chartData };
+      return {
+        byCategory: {
+          labels: categoryLabels,
+          datasets: [{
+            label: 'Expenses by Category',
+            data: categoryData,
+            backgroundColor: ['#FFB3BA', '#FF8C00', '#4285F4', '#34A853', '#FBBC04', '#EA4335'],
+            borderColor: '#fff',
+            borderWidth: 2,
+          }],
+        },
+        byMonth: {
+          labels: monthlyExpenses.labels,
+          datasets: [{
+            label: 'Monthly Expenses',
+            data: monthlyExpenses.data,
+            backgroundColor: ['#FF6B6B'],
+            borderColor: '#FF6B6B',
+            borderWidth: 1,
+          }],
+        },
+        trends: {
+          labels: monthlyExpenses.labels,
+          datasets: [{
+            label: 'Expense Trends',
+            data: monthlyExpenses.data,
+            backgroundColor: ['#FF6B6B'],
+            borderColor: '#FF6B6B',
+            borderWidth: 1,
+          }],
+        },
+      };
     } catch (error) {
       logger.error('Error getting expense breakdown chart data:', error);
       throw error;
     }
+  }
+
+  /**
+   * Helper method to get monthly project data
+   */
+  private async getMonthlyProjectData(): Promise<{ labels: string[]; data: number[] }> {
+    const labels: string[] = [];
+    const data: number[] = [];
+    const now = new Date();
+
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+
+      const count = await prisma.project.count({
+        where: {
+          createdAt: {
+            gte: date,
+            lt: nextMonth,
+          },
+        },
+      });
+
+      labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+      data.push(count);
+    }
+
+    return { labels, data };
+  }
+
+  /**
+   * Helper method to get monthly expense data
+   */
+  private async getMonthlyExpenseData(months: number): Promise<{ labels: string[]; data: number[] }> {
+    const labels: string[] = [];
+    const data: number[] = [];
+    const now = new Date();
+
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+
+      const expenseSum = await prisma.expense.aggregate({
+        where: {
+          date: {
+            gte: date,
+            lt: nextMonth,
+          },
+        },
+        _sum: { amount: true },
+      });
+
+      labels.push(date.toLocaleDateString('en-US', { month: 'short' }));
+      data.push(expenseSum._sum.amount || 0);
+    }
+
+    return { labels, data };
   }
 }
 

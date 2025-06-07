@@ -80,12 +80,16 @@ class ClientsService {
         params
       );
 
-      if (response.success && response.data) {
-        // Ensure clients is always an array
-        const clients = Array.isArray(response.data.clients) ? response.data.clients : [];
+      if (response.success) {
+        // The backend returns clients directly, not wrapped in another data property
         return {
-          ...response.data,
-          clients,
+          clients: Array.isArray(response.data) ? response.data : [],
+          pagination: response.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+          },
         };
       }
 

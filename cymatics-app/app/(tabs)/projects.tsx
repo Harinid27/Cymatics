@@ -17,42 +17,18 @@ import {
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
-// Import with error handling
-let ProjectsService: any = null;
-let Project: any = null;
-let ProjectsResponse: any = null;
-
-try {
-  const ProjectsModule = require('../../src/services/ProjectsService');
-  ProjectsService = ProjectsModule.default;
-  Project = ProjectsModule.Project;
-  ProjectsResponse = ProjectsModule.ProjectsResponse;
-} catch (error) {
-  console.warn('ProjectsService not available:', error);
-}
-
-// Define Project interface as fallback
-interface Project {
-  id: string;
-  code: string;
-  name: string;
-  status: string;
-  amount: number;
-  pendingAmt: number;
-  receivedAmt: number;
-  profit: number;
-  outsourcing: boolean;
-  outsourcingPaid: boolean;
-  rating: number;
-  createdAt: string;
-  updatedAt: string;
-  shootStartDate?: string;
-  shootEndDate?: string;
-  image?: string;
-}
-import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import ProjectsService, { Project, ProjectsResponse } from '../../src/services/ProjectsService';
+import MapsService from '../../src/services/MapsService';
+import CustomHeader from '../../src/components/CustomHeader';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProjectsScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
@@ -68,6 +44,8 @@ export default function ProjectsScreen() {
     total: 0,
     totalPages: 0,
   });
+
+
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -110,11 +88,22 @@ export default function ProjectsScreen() {
       filtered = filtered.filter(project => {
         switch (filter) {
           case 'active':
-            return project.status === 'ACTIVE';
+            // Check for active status variations and pending amount
+            return project.status?.toLowerCase() === 'active' ||
+                   project.status?.toLowerCase() === 'ongoing' ||
+                   project.status?.toLowerCase() === 'in_progress' ||
+                   (project.pendingAmt && project.pendingAmt > 0);
           case 'pending':
-            return project.status === 'PENDING' || project.status === 'ON_HOLD';
+            // Check for pending status variations or projects with pending amounts
+            return project.status?.toLowerCase() === 'pending' ||
+                   project.status?.toLowerCase() === 'on_hold' ||
+                   project.status?.toLowerCase() === 'draft' ||
+                   (project.pendingAmt && project.pendingAmt > 0 && project.status?.toLowerCase() !== 'completed');
           case 'completed':
-            return project.status === 'COMPLETED';
+            // Check for completed status or projects with no pending amount
+            return project.status?.toLowerCase() === 'completed' ||
+                   project.status?.toLowerCase() === 'finished' ||
+                   (project.pendingAmt && project.pendingAmt <= 0);
           case 'high_value':
             return project.amount >= 50000;
           case 'outsourced':
@@ -135,10 +124,6 @@ export default function ProjectsScreen() {
       console.log('Loading projects...');
 
       try {
-        if (!ProjectsService) {
-          throw new Error('ProjectsService not available');
-        }
-
         const response = await ProjectsService.getProjects({
           page,
           limit: 10,
@@ -146,7 +131,9 @@ export default function ProjectsScreen() {
           sortOrder: 'desc',
         });
 
-        console.log('API Response:', response);
+        console.log('Projects API Response:', response);
+        console.log('Projects data:', response?.projects);
+        console.log('Projects pagination:', response?.pagination);
 
         if (response) {
           // API responded successfully (even if projects array is empty)
@@ -199,58 +186,48 @@ export default function ProjectsScreen() {
 
   // Handle project creation
   const handleCreateProject = () => {
-    Alert.alert(
-      'Create Project',
-      'Project creation form will be implemented soon.',
-      [{ text: 'OK' }]
-    );
+    router.push('/create-project');
   };
 
   // Handle project press
   const handleProjectPress = (project: Project) => {
-    Alert.alert(
-      'Project Details',
-      `Project: ${project.name}\nCode: ${project.code}\nStatus: ${project.status}`,
-      [{ text: 'OK' }]
-    );
+    router.push(`/project-details?code=${project.code}&id=${project.id}`);
   };
 
-  // Load data on component mount
+  // Handle project edit
+  const handleEditProject = (project: Project) => {
+    router.push(`/edit-project?id=${project.id}`);
+  };
+
+
+
+  // Load data on component mount and when screen comes into focus
   useEffect(() => {
     loadProjects();
   }, []);
 
-  // Helper functions with fallbacks
+  // Refresh data when screen comes into focus (e.g., returning from create screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadProjects(1); // Refresh from first page
+    }, [])
+  );
+
+  // Helper functions
   const formatCurrency = (amount: number): string => {
-    try {
-      return ProjectsService?.formatCurrency ? ProjectsService.formatCurrency(amount) : `$${amount.toLocaleString()}`;
-    } catch {
-      return `$${amount.toLocaleString()}`;
-    }
+    return ProjectsService.formatCurrency(amount);
   };
 
   const formatStatus = (status: string): string => {
-    try {
-      return ProjectsService?.formatStatus ? ProjectsService.formatStatus(status) : status;
-    } catch {
-      return status;
-    }
+    return ProjectsService.formatStatus(status);
   };
 
   const getStatusColor = (status: string): string => {
-    try {
-      return ProjectsService?.getStatusColor ? ProjectsService.getStatusColor(status) : '#4285F4';
-    } catch {
-      return '#4285F4';
-    }
+    return ProjectsService.getStatusColor(status);
   };
 
   const calculateDuration = (startDate: string, endDate: string): string => {
-    try {
-      return ProjectsService?.calculateDuration ? ProjectsService.calculateDuration(startDate, endDate) : 'Duration TBD';
-    } catch {
-      return 'Duration TBD';
-    }
+    return ProjectsService.calculateDuration(startDate, endDate);
   };
 
   const renderProjectCard = (project: Project) => {
@@ -259,62 +236,78 @@ export default function ProjectsScreen() {
       : 'Duration TBD';
 
     const defaultImage = 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=400&h=200&fit=crop';
+    const projectImageUrl = MapsService.getProjectImageUrl(project, defaultImage);
 
     return (
-      <TouchableOpacity
-        key={project.id}
-        style={styles.projectCard}
-        onPress={() => handleProjectPress(project)}
-      >
-        <Image
-          source={{ uri: project.image || defaultImage }}
-          style={styles.projectImage}
-        />
-        <View style={styles.projectInfo}>
-          <View style={styles.projectHeader}>
-            <Text style={styles.duration}>{duration.toUpperCase()}</Text>
-            <Text style={styles.code}>{project.code}</Text>
-          </View>
-          <Text style={styles.projectTitle}>{project.name}</Text>
-          <View style={styles.projectMeta}>
-            <Text style={styles.projectAmount}>
-              {formatCurrency(project.amount)}
-            </Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(project.status) }]}>
-              <Text style={styles.statusText}>
-                {formatStatus(project.status)}
+      <View key={project.id} style={styles.projectCardContainer}>
+        <TouchableOpacity
+          style={styles.projectCard}
+          onPress={() => handleProjectPress(project)}
+        >
+          <Image
+            source={{ uri: projectImageUrl }}
+            style={styles.projectImage}
+          />
+          <View style={styles.projectInfo}>
+            <View style={styles.projectHeader}>
+              <Text style={styles.duration}>{duration.toUpperCase()}</Text>
+              <Text style={styles.code}>{project.code}</Text>
+            </View>
+            <Text style={styles.projectTitle}>{project.name}</Text>
+            <View style={styles.projectMeta}>
+              <Text style={styles.projectAmount}>
+                {formatCurrency(project.amount)}
               </Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(project.status) }]}>
+                <Text style={styles.statusText}>
+                  {formatStatus(project.status)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.filesButton}>
+                <MaterialIcons name="folder" size={16} color="#fff" />
+                <Text style={styles.filesButtonText}>Files</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareButton}>
+                <MaterialIcons name="share" size={16} color="#666" />
+                <Text style={styles.shareButtonText}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleEditProject(project);
+                }}
+              >
+                <MaterialIcons name="edit" size={16} color="#4285F4" />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.filesButton}>
-              <MaterialIcons name="folder" size={16} color="#fff" />
-              <Text style={styles.filesButtonText}>Files</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.shareButton}>
-              <MaterialIcons name="share" size={16} color="#666" />
-              <Text style={styles.shareButtonText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
+      <CustomHeader
+        title="Projects"
+        subtitle={`${filteredProjects.length} ${filteredProjects.length === 1 ? 'project' : 'projects'}`}
+        leftComponent={
+          <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
+            <MaterialIcons name="menu" size={24} color={colors.text} />
+          </TouchableOpacity>
+        }
+      />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
-          <MaterialIcons name="menu" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Projects</Text>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      {/* Search and Filter Bar */}
+      <View style={styles.searchFilterContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#999" />
           <TextInput
@@ -331,9 +324,32 @@ export default function ProjectsScreen() {
           )}
         </View>
         <TouchableOpacity style={styles.filterButton} onPress={handleFilterPress}>
-          <MaterialIcons name="filter-list" size={24} color="#000" />
+          <MaterialIcons name="filter-list" size={20} color="#666" />
           {selectedFilter !== 'all' && <View style={styles.filterIndicator} />}
         </TouchableOpacity>
+      </View>
+
+      {/* Action Bar */}
+      <View style={styles.actionBar}>
+        <View style={styles.actionBarLeft}>
+          {selectedFilter !== 'all' && (
+            <View style={styles.activeFilterChip}>
+              <Text style={styles.activeFilterText}>
+                {selectedFilter === 'active' ? 'Active' :
+                 selectedFilter === 'pending' ? 'Pending' :
+                 selectedFilter === 'completed' ? 'Completed' :
+                 selectedFilter === 'high_value' ? 'High Value' :
+                 selectedFilter === 'outsourced' ? 'Outsourced' : selectedFilter}
+              </Text>
+              <TouchableOpacity onPress={() => handleFilterSelect('all')}>
+                <MaterialIcons name="close" size={16} color="#4285F4" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+        <View style={styles.actionBarRight}>
+          {/* Action buttons can be added here if needed */}
+        </View>
       </View>
 
       {/* Projects List */}
@@ -395,9 +411,14 @@ export default function ProjectsScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Add Button */}
-      <TouchableOpacity style={styles.floatingButton} onPress={handleCreateProject}>
-        <MaterialIcons name="add" size={28} color="#000" />
+
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={handleCreateProject}
+      >
+        <MaterialIcons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
       {/* Filter Modal */}
@@ -419,10 +440,36 @@ export default function ProjectsScreen() {
             <ScrollView style={styles.filterOptions}>
               {[
                 { key: 'all', label: 'All Projects', count: projects.length },
-                { key: 'active', label: 'Active', count: projects.filter(p => p.status === 'ACTIVE').length },
-                { key: 'pending', label: 'Pending', count: projects.filter(p => p.status === 'PENDING' || p.status === 'ON_HOLD').length },
-                { key: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'COMPLETED').length },
-                { key: 'high_value', label: 'High Value (≥$50k)', count: projects.filter(p => p.amount >= 50000).length },
+                {
+                  key: 'active',
+                  label: 'Active',
+                  count: projects.filter(p =>
+                    p.status?.toLowerCase() === 'active' ||
+                    p.status?.toLowerCase() === 'ongoing' ||
+                    p.status?.toLowerCase() === 'in_progress' ||
+                    (p.pendingAmt && p.pendingAmt > 0)
+                  ).length
+                },
+                {
+                  key: 'pending',
+                  label: 'Pending',
+                  count: projects.filter(p =>
+                    p.status?.toLowerCase() === 'pending' ||
+                    p.status?.toLowerCase() === 'on_hold' ||
+                    p.status?.toLowerCase() === 'draft' ||
+                    (p.pendingAmt && p.pendingAmt > 0 && p.status?.toLowerCase() !== 'completed')
+                  ).length
+                },
+                {
+                  key: 'completed',
+                  label: 'Completed',
+                  count: projects.filter(p =>
+                    p.status?.toLowerCase() === 'completed' ||
+                    p.status?.toLowerCase() === 'finished' ||
+                    (p.pendingAmt && p.pendingAmt <= 0)
+                  ).length
+                },
+                { key: 'high_value', label: 'High Value (≥₹50k)', count: projects.filter(p => p.amount >= 50000).length },
                 { key: 'outsourced', label: 'Outsourced', count: projects.filter(p => p.outsourcing).length },
               ].map((filter) => (
                 <TouchableOpacity
@@ -468,31 +515,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
-  },
   menuButton: {
-    padding: 5,
     marginRight: 15,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
+  headerActionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F4FF',
   },
-  searchContainer: {
+  searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 0,
+    paddingVertical: 15,
     backgroundColor: '#fff',
-    marginBottom: 10,
-    marginTop: -5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   searchBar: {
     flex: 1,
@@ -513,26 +554,69 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   filterButton: {
-    padding: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    marginLeft: 12,
     position: 'relative',
   },
   filterIndicator: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6,
+    right: 6,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#4285F4',
   },
+  actionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  actionBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  actionBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#4285F4',
+  },
+  activeFilterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#4285F4',
+    marginRight: 6,
+  },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+  projectCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 20,
   },
   projectCard: {
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 15,
-    marginBottom: 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -543,6 +627,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+
   projectImage: {
     width: '100%',
     height: 180,
@@ -596,7 +681,7 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   filesButton: {
     flex: 1,
@@ -630,6 +715,22 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
   },
+  editButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  editButtonText: {
+    color: '#4285F4',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   floatingButton: {
     position: 'absolute',
     bottom: 30,
@@ -637,7 +738,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#fff',
+    backgroundColor: '#4285F4',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -649,6 +750,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+
   loadingContainer: {
     flex: 1,
     alignItems: 'center',

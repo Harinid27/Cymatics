@@ -13,6 +13,12 @@ export interface ApiResponse<T = any> {
   message?: string;
   error?: string;
   status?: number;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface ApiError {
@@ -40,6 +46,9 @@ class ApiService {
     this.baseURL = envConfig.API_BASE_URL;
     this.loadTokens();
 
+    // TEMPORARY: Set a hardcoded token for testing
+    this.authToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJzIiwiZW1haWwiOiI5MDAzNTE5NDk3c0BnbWFpbC5jb20iLCJpYXQiOjE3NDkxMjg4NDYsImV4cCI6MTc0OTczMzY0Nn0.fhGIHQ9ItrHF39fXQxmLEuioUZ_MYePHkR1vFyLYbrE";
+
     if (shouldLogApi()) {
       console.log('🌐 ApiService initialized with baseURL:', this.baseURL);
       console.log('🔧 Environment API URL:', process.env.EXPO_PUBLIC_API_URL || 'Not set');
@@ -47,6 +56,7 @@ class ApiService {
         EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
         NODE_ENV: process.env.NODE_ENV,
       });
+      console.log('🔑 Using hardcoded token for testing');
     }
   }
 
@@ -167,6 +177,7 @@ class ApiService {
     const timestamp = new Date().toISOString();
 
     console.log(`📡 [${timestamp}] ${config.method} ${url}`);
+    console.log(`🔑 Auth Token: ${this.authToken ? 'Present' : 'Missing'}`);
 
     if (config.data) {
       console.log('📤 Request Data:', config.data);
@@ -253,8 +264,8 @@ class ApiService {
         headers: this.buildHeaders(headers),
       };
 
-      // Add body for POST/PUT requests
-      if (data && (method === 'POST' || method === 'PUT')) {
+      // Add body for POST/PUT/DELETE requests
+      if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
         requestOptions.body = JSON.stringify(data);
       }
 
@@ -287,6 +298,7 @@ class ApiService {
           data: responseData.data || responseData,
           message: responseData.message,
           status: response.status,
+          pagination: responseData.pagination,
         };
       } else {
         // Handle 401 - token expired
@@ -364,8 +376,8 @@ class ApiService {
     return this.makeRequest<T>({ method: 'PUT', endpoint, data, requiresAuth });
   }
 
-  public async delete<T>(endpoint: string, requiresAuth = true): Promise<ApiResponse<T>> {
-    return this.makeRequest<T>({ method: 'DELETE', endpoint, requiresAuth });
+  public async delete<T>(endpoint: string, data?: any, requiresAuth = true): Promise<ApiResponse<T>> {
+    return this.makeRequest<T>({ method: 'DELETE', endpoint, data, requiresAuth });
   }
 
   /**

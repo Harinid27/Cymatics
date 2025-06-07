@@ -56,6 +56,8 @@ export interface IncomeWithProject {
     id: number;
     code: string;
     name: string | null;
+    status: string | null;
+    pendingAmt: number;
   } | null;
 }
 
@@ -112,6 +114,8 @@ class FinancialService {
               id: true,
               code: true,
               name: true,
+              status: true,
+              pendingAmt: true,
             },
           },
         },
@@ -182,6 +186,8 @@ class FinancialService {
               id: true,
               code: true,
               name: true,
+              status: true,
+              pendingAmt: true,
             },
           },
         },
@@ -215,6 +221,8 @@ class FinancialService {
               id: true,
               code: true,
               name: true,
+              status: true,
+              pendingAmt: true,
             },
           },
         },
@@ -265,6 +273,8 @@ class FinancialService {
               id: true,
               code: true,
               name: true,
+              status: true,
+              pendingAmt: true,
             },
           },
         },
@@ -320,6 +330,8 @@ class FinancialService {
       throw error;
     }
   }
+
+
 
   /**
    * Create new expense entry
@@ -559,6 +571,8 @@ class FinancialService {
       throw error;
     }
   }
+
+
 
   /**
    * Get expense categories

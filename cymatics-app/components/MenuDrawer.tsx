@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -44,6 +45,7 @@ const menuItems: MenuItem[] = [
 // Force update - Updated menu items
 
 export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
+  const { colors } = useTheme();
   const slideAnim = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const pathname = usePathname();
 
@@ -99,16 +101,16 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
     return (
       <TouchableOpacity
         key={item.id}
-        style={[styles.menuItem, isActive && styles.activeMenuItem]}
+        style={[styles.menuItem, isActive && { backgroundColor: colors.text }]}
         onPress={() => handleMenuItemPress(item.route)}
       >
         <MaterialIcons
           name={item.icon}
           size={24}
-          color={isActive ? '#ffffff' : 'rgba(0, 0, 0, 0.6)'}
+          color={isActive ? colors.background : colors.muted}
           style={styles.menuIcon}
         />
-        <Text style={[styles.menuText, isActive && styles.activeMenuText]}>
+        <Text style={[styles.menuText, { color: colors.text }, isActive && { color: colors.background }]}>
           {item.title}
         </Text>
       </TouchableOpacity>
@@ -132,6 +134,7 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
         <Animated.View
           style={[
             styles.drawer,
+            { backgroundColor: colors.background },
             {
               transform: [{ translateX: slideAnim }],
             },
@@ -139,7 +142,7 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
         >
           <SafeAreaView style={styles.drawerContent}>
             {/* Logo section */}
-            <View style={styles.logoSection}>
+            <View style={[styles.logoSection, { borderBottomColor: colors.border }]}>
               <View style={styles.logoContainer}>
                 <Image
                   source={require('../assets/images/logo_CYMATICS DARK 1.png')}

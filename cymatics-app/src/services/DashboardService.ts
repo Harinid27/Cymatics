@@ -29,6 +29,27 @@ export interface TodaySchedule {
   projectCode?: string;
 }
 
+export interface UpcomingShoot {
+  id: number;
+  code: string;
+  name: string;
+  company: string;
+  type: string;
+  status: string;
+  shootStartDate: string;
+  shootEndDate?: string;
+  amount: number;
+  location?: string;
+  pendingAmt: number;
+  receivedAmt: number;
+  client?: {
+    id: number;
+    name: string;
+    company: string;
+    email?: string;
+  };
+}
+
 export interface ChartData {
   labels: string[];
   datasets: Array<{
@@ -82,9 +103,20 @@ class DashboardService {
    */
   async getStats(): Promise<DashboardStats | null> {
     try {
+      console.log('🔄 Fetching dashboard stats from:', `${envConfig.DASHBOARD_ENDPOINT}/stats`);
+
       const response = await ApiService.get<DashboardStats>(`${envConfig.DASHBOARD_ENDPOINT}/stats`);
 
+      console.log('📊 Dashboard stats API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        data: response.data,
+        error: response.error,
+        status: response.status,
+      });
+
       if (response.success && response.data) {
+        console.log('✅ Dashboard stats API success, returning data:', response.data);
         return response.data;
       }
 
@@ -101,9 +133,21 @@ class DashboardService {
    */
   async getTodaySchedule(): Promise<TodaySchedule[]> {
     try {
+      console.log('🔄 Fetching today\'s schedule from:', `${envConfig.DASHBOARD_ENDPOINT}/today-schedule`);
+
       const response = await ApiService.get<TodaySchedule[]>(`${envConfig.DASHBOARD_ENDPOINT}/today-schedule`);
 
+      console.log('📅 Today\'s schedule API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataLength: response.data?.length || 0,
+        data: response.data,
+        error: response.error,
+        status: response.status,
+      });
+
       if (response.success && response.data) {
+        console.log('✅ Today\'s schedule API success, returning data:', response.data);
         return response.data;
       }
 
@@ -238,11 +282,57 @@ class DashboardService {
   }
 
   /**
+   * Get upcoming shoots (projects with future shoot dates)
+   */
+  async getUpcomingShoots(): Promise<UpcomingShoot[]> {
+    try {
+      console.log('🔄 Fetching upcoming shoots from projects API...');
+
+      // Get projects with future shoot dates
+      const response = await ApiService.get<UpcomingShoot[]>(`${envConfig.PROJECTS_ENDPOINT}`, {
+        limit: '10',
+        sortBy: 'shootStartDate',
+        sortOrder: 'asc',
+      });
+
+      console.log('📅 Upcoming shoots API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        projectsCount: Array.isArray(response.data) ? response.data.length : 0,
+        error: response.error,
+        status: response.status,
+        fullResponse: response,
+      });
+
+      if (response.success && Array.isArray(response.data)) {
+        // Filter projects with future shoot dates
+        const now = new Date();
+        const upcomingProjects = response.data.filter(project => {
+          if (!project.shootStartDate) return false;
+          const shootDate = new Date(project.shootStartDate);
+          return shootDate > now;
+        });
+
+        console.log('✅ Filtered upcoming shoots:', upcomingProjects.length, 'out of', response.data.length);
+        console.log('📅 Upcoming projects data:', upcomingProjects);
+        return upcomingProjects.slice(0, 5); // Return max 5 upcoming shoots
+      }
+
+      console.error('Failed to fetch upcoming shoots:', response.error);
+      return [];
+    } catch (error) {
+      console.error('Upcoming shoots error:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get all dashboard data at once
    */
   async getAllDashboardData(period: string = '6months'): Promise<{
     stats: DashboardStats | null;
     todaySchedule: TodaySchedule[];
+    upcomingShoots: UpcomingShoot[];
     incomeExpenseChart: IncomeExpenseChart | null;
     projectDetailsChart: ProjectDetailsChart | null;
     expenseBreakdownChart: ExpenseBreakdownChart | null;
@@ -254,12 +344,14 @@ class DashboardService {
       const [
         stats,
         todaySchedule,
+        upcomingShoots,
         incomeExpenseChart,
         projectDetailsChart,
         expenseBreakdownChart,
       ] = await Promise.all([
         this.getStats(),
         this.getTodaySchedule(),
+        this.getUpcomingShoots(),
         this.getIncomeExpenseChart(period),
         this.getProjectDetailsChart(),
         this.getExpenseBreakdownChart(period),
@@ -268,6 +360,7 @@ class DashboardService {
       console.log('📊 Dashboard data results:', {
         stats: stats ? 'loaded' : 'null',
         todayScheduleCount: todaySchedule.length,
+        upcomingShootsCount: upcomingShoots.length,
         incomeExpenseChart: incomeExpenseChart ? 'loaded' : 'null',
         projectDetailsChart: projectDetailsChart ? 'loaded' : 'null',
         expenseBreakdownChart: expenseBreakdownChart ? 'loaded' : 'null',
@@ -278,6 +371,7 @@ class DashboardService {
       return {
         stats,
         todaySchedule,
+        upcomingShoots,
         incomeExpenseChart: incomeExpenseChart || this.createEmptyIncomeExpenseChart(),
         projectDetailsChart: projectDetailsChart || this.createEmptyProjectDetailsChart(),
         expenseBreakdownChart: expenseBreakdownChart || this.createEmptyExpenseBreakdownChart(),
@@ -289,6 +383,7 @@ class DashboardService {
       return {
         stats: null,
         todaySchedule: [],
+        upcomingShoots: [],
         incomeExpenseChart: this.createEmptyIncomeExpenseChart(),
         projectDetailsChart: this.createEmptyProjectDetailsChart(),
         expenseBreakdownChart: this.createEmptyExpenseBreakdownChart(),
@@ -306,6 +401,7 @@ class DashboardService {
       // Check if we got at least some data
       const hasData = data.stats !== null ||
                      data.todaySchedule.length > 0 ||
+                     data.upcomingShoots.length > 0 ||
                      data.incomeExpenseChart !== null;
 
       return hasData;

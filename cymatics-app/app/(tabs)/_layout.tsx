@@ -5,23 +5,27 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#000000',
-        tabBarInactiveTintColor: 'rgba(0, 0, 0, 0.45)',
+        tabBarActiveTintColor: colors.tabIconSelected,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a white background on iOS
-            backgroundColor: '#ffffff',
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
           },
           default: {
-            backgroundColor: '#ffffff',
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
           },
         }),
       }}>

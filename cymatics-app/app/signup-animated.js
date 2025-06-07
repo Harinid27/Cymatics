@@ -20,10 +20,14 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import AuthService from '../src/services/AuthService';
+import { useUser } from '@/contexts/UserContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { height: screenHeight } = Dimensions.get('window');
 
 export default function SignupAnimatedScreen() {
+  const { isAuthenticated, login, sendOTP } = useUser();
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,13 +42,19 @@ export default function SignupAnimatedScreen() {
   const formTranslateY = useRef(new Animated.Value(50)).current;
 
   useEffect(() => {
+    // Check if user is already authenticated
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+      return;
+    }
+
     // Start the sequence: splash -> logo animation -> form animation
     const splashTimer = setTimeout(() => {
       startLogoTransition();
     }, 1500); // Show splash for 1.5 seconds
 
     return () => clearTimeout(splashTimer);
-  }, []);
+  }, [isAuthenticated]);
 
   const startLogoTransition = () => {
     // Calculate target position for logo (from perfect center to top)
@@ -110,9 +120,9 @@ export default function SignupAnimatedScreen() {
     setIsLoading(true);
 
     try {
-      const result = await AuthService.sendOTP(email);
+      const result = await sendOTP(email);
 
-      if (result.success) {
+      if (result) {
         setOtpSent(true);
         setShowOTPInput(true);
         Alert.alert(
@@ -121,7 +131,7 @@ export default function SignupAnimatedScreen() {
           [{ text: 'OK' }]
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to send OTP. Please try again.');
+        Alert.alert('Error', 'Failed to send OTP. Please try again.');
       }
     } catch (error) {
       Alert.alert('Error', 'Network error. Please check your connection and try again.');
@@ -140,9 +150,9 @@ export default function SignupAnimatedScreen() {
     setIsLoading(true);
 
     try {
-      const result = await AuthService.verifyOTP(email, otp);
+      const result = await login(email, otp);
 
-      if (result.success) {
+      if (result) {
         Alert.alert(
           'Success',
           'Authentication successful! Welcome to Cymatics.',
@@ -154,7 +164,7 @@ export default function SignupAnimatedScreen() {
           ]
         );
       } else {
-        Alert.alert('Error', AuthService.handleAuthError(result.error || 'Invalid OTP'));
+        Alert.alert('Error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
       Alert.alert('Error', 'Network error. Please check your connection and try again.');
@@ -167,12 +177,12 @@ export default function SignupAnimatedScreen() {
     setIsLoading(true);
 
     try {
-      const result = await AuthService.sendOTP(email);
+      const result = await sendOTP(email);
 
-      if (result.success) {
+      if (result) {
         Alert.alert('OTP Resent', 'A new verification code has been sent to your email.');
       } else {
-        Alert.alert('Error', result.error || 'Failed to resend OTP. Please try again.');
+        Alert.alert('Error', 'Failed to resend OTP. Please try again.');
       }
     } catch (error) {
       Alert.alert('Error', 'Network error. Please check your connection and try again.');
@@ -195,8 +205,11 @@ export default function SignupAnimatedScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#fff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Logo - always visible, animates from center to top */}
       <Animated.View
@@ -238,10 +251,10 @@ export default function SignupAnimatedScreen() {
                   }
                 ]}
               >
-                <Text style={styles.title}>
+                <Text style={[styles.title, { color: colors.text }]}>
                   {showOTPInput ? 'Verify your email' : 'Create an account'}
                 </Text>
-                <Text style={styles.subtitle}>
+                <Text style={[styles.subtitle, { color: colors.muted }]}>
                   {showOTPInput
                     ? `Enter the 6-digit code sent to ${email}`
                     : 'Enter your email to sign up for this app'
@@ -251,9 +264,13 @@ export default function SignupAnimatedScreen() {
                 {!showOTPInput ? (
                   <>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.text
+                      }]}
                       placeholder="email@domain.com"
-                      placeholderTextColor="#999"
+                      placeholderTextColor={colors.placeholder}
                       value={email}
                       onChangeText={setEmail}
                       keyboardType="email-address"
@@ -262,7 +279,7 @@ export default function SignupAnimatedScreen() {
                     />
 
                     <TouchableOpacity
-                      style={[styles.primaryButton, isLoading && styles.disabledButton]}
+                      style={[styles.primaryButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
                       onPress={handleEmailSignup}
                       disabled={isLoading}
                     >
@@ -276,9 +293,13 @@ export default function SignupAnimatedScreen() {
                 ) : (
                   <>
                     <TextInput
-                      style={styles.otpInput}
+                      style={[styles.otpInput, {
+                        backgroundColor: colors.card,
+                        borderColor: colors.primary,
+                        color: colors.text
+                      }]}
                       placeholder="000000"
-                      placeholderTextColor="#999"
+                      placeholderTextColor={colors.placeholder}
                       value={otp}
                       onChangeText={setOtp}
                       keyboardType="numeric"
@@ -289,7 +310,7 @@ export default function SignupAnimatedScreen() {
                     />
 
                     <TouchableOpacity
-                      style={[styles.primaryButton, isLoading && styles.disabledButton]}
+                      style={[styles.primaryButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
                       onPress={handleOTPVerification}
                       disabled={isLoading}
                     >

@@ -12,17 +12,21 @@ import {
   TextInput,
   Modal,
   Platform,
+  Switch,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '@/contexts/UserContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProfileScreen() {
-  const { userData, updateUserData, setProfileImage, isLoading, error, clearError } = useUser();
+  const { userData, updateUserData, setProfileImage, isLoading, error, clearError, logout } = useUser();
+  const { colors, themeMode, setThemeMode, toggleTheme } = useTheme();
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleBack = () => {
     router.back();
@@ -147,6 +151,34 @@ export default function ProfileScreen() {
     router.push(route as any);
   };
 
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutModal(false);
+      router.replace('/signup-animated');
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  const getThemeDisplayText = () => {
+    switch (themeMode) {
+      case 'light':
+        return 'Light';
+      case 'dark':
+        return 'Dark';
+      case 'system':
+        return 'System';
+      default:
+        return 'System';
+    }
+  };
+
   const renderProfileField = (label: string, value: string, field: string, editable: boolean = true, noBorder: boolean = false) => (
     <TouchableOpacity
       style={[
@@ -157,34 +189,44 @@ export default function ProfileScreen() {
       onPress={() => editable && !isLoading && handleEditField(field, value)}
       disabled={!editable || isLoading}
     >
-      <Text style={[styles.fieldLabel, isLoading && styles.disabledText]}>{label}</Text>
-      <Text style={[styles.fieldValue, isLoading && styles.disabledText]}>{value || 'Not set'}</Text>
+      <Text style={[styles.fieldLabel, { color: colors.text }, isLoading && styles.disabledText]}>{label}</Text>
+      <Text style={[styles.fieldValue, { color: colors.muted }, isLoading && styles.disabledText]}>{value || 'Not set'}</Text>
       {editable && (
         <MaterialIcons
           name="chevron-right"
           size={24}
-          color={isLoading ? "#ccc" : "#999"}
+          color={isLoading ? colors.placeholder : colors.icon}
         />
       )}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#fff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Title</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+        <TouchableOpacity style={styles.themeToggleButton} onPress={toggleTheme}>
+          <MaterialIcons
+            name={themeMode === 'dark' ? 'light-mode' : 'dark-mode'}
+            size={24}
+            color={colors.text}
+          />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollView, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
         {/* Error Display */}
         {error && (
-          <View style={styles.errorContainer}>
+          <View style={[styles.errorContainer, { backgroundColor: colors.error }]}>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity onPress={clearError} style={styles.errorCloseButton}>
               <MaterialIcons name="close" size={20} color="#fff" />
@@ -202,8 +244,8 @@ export default function ProfileScreen() {
             {userData?.profileImage ? (
               <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
             ) : (
-              <View style={styles.defaultProfileImage}>
-                <MaterialIcons name="person" size={40} color="#000" />
+              <View style={[styles.defaultProfileImage, { backgroundColor: colors.surface }]}>
+                <MaterialIcons name="person" size={40} color={colors.icon} />
               </View>
             )}
             {isLoading && (
@@ -213,7 +255,7 @@ export default function ProfileScreen() {
             )}
           </TouchableOpacity>
           <TouchableOpacity onPress={handleImagePicker} disabled={isLoading}>
-            <Text style={[styles.editImageText, isLoading && styles.disabledText]}>
+            <Text style={[styles.editImageText, { color: colors.primary }, isLoading && styles.disabledText]}>
               Edit profile image
             </Text>
           </TouchableOpacity>
@@ -232,11 +274,33 @@ export default function ProfileScreen() {
 
               {/* Add Link Button - positioned below Links value */}
               <TouchableOpacity style={styles.addLinkButton} disabled={isLoading}>
-                <MaterialIcons name="add" size={20} color={isLoading ? "#ccc" : "#999"} />
-                <Text style={[styles.addLinkText, isLoading && styles.disabledText]}>Add link</Text>
+                <MaterialIcons name="add" size={20} color={isLoading ? colors.placeholder : colors.icon} />
+                <Text style={[styles.addLinkText, { color: colors.muted }, isLoading && styles.disabledText]}>Add link</Text>
               </TouchableOpacity>
 
               {renderProfileField('Bio', userData.bio || '', 'bio')}
+
+              {/* Settings Section */}
+              <View style={[styles.settingsSection, { borderTopColor: colors.border }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+
+                {/* Logout Button */}
+                <TouchableOpacity
+                  style={[styles.settingItem, styles.logoutItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={handleLogout}
+                >
+                  <View style={styles.settingLeft}>
+                    <MaterialIcons name="logout" size={24} color={colors.text} />
+                    <View style={styles.settingTextContainer}>
+                      <Text style={[styles.settingTitle, { color: colors.text }]}>Logout</Text>
+                      <Text style={[styles.settingSubtitle, { color: colors.muted }]}>
+                        Sign out of your account
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
@@ -253,11 +317,16 @@ export default function ProfileScreen() {
         onRequestClose={handleCancelEdit}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit {editingField}</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Edit {editingField}</Text>
             <TextInput
               style={[
                 styles.modalInput,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  color: colors.text
+                },
                 validationError && styles.modalInputError
               ]}
               value={editValue}
@@ -266,25 +335,27 @@ export default function ProfileScreen() {
                 setValidationError(null);
               }}
               placeholder={`Enter ${editingField}`}
+              placeholderTextColor={colors.placeholder}
               multiline={editingField === 'bio'}
               numberOfLines={editingField === 'bio' ? 4 : 1}
               editable={!isLoading}
             />
             {validationError && (
-              <Text style={styles.validationError}>{validationError}</Text>
+              <Text style={[styles.validationError, { color: colors.error }]}>{validationError}</Text>
             )}
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, isLoading && styles.disabledButton]}
+                style={[styles.modalButton, { borderColor: colors.border }, isLoading && styles.disabledButton]}
                 onPress={handleCancelEdit}
                 disabled={isLoading}
               >
-                <Text style={[styles.modalButtonText, isLoading && styles.disabledText]}>Cancel</Text>
+                <Text style={[styles.modalButtonText, { color: colors.text }, isLoading && styles.disabledText]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.modalButton,
                   styles.saveButton,
+                  { backgroundColor: colors.primary },
                   isLoading && styles.disabledButton
                 ]}
                 onPress={handleSaveEdit}
@@ -301,27 +372,60 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
+            <Text style={[styles.modalMessage, { color: colors.muted }]}>
+              Are you sure you want to logout?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { borderColor: colors.border }]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton, { backgroundColor: colors.error }]}
+                onPress={confirmLogout}
+              >
+                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('/(tabs)')}>
-          <MaterialIcons name="home-filled" size={28} color="#000000" />
-          <Text style={[styles.tabLabel, styles.activeTabLabel]}>Home</Text>
+          <MaterialIcons name="home-filled" size={28} color={colors.tabIconDefault} />
+          <Text style={[styles.tabLabel, { color: colors.tabIconDefault }]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('/(tabs)/projects')}>
-          <MaterialIcons name="description" size={28} color="rgba(0, 0, 0, 0.45)" />
-          <Text style={styles.tabLabel}>Projects</Text>
+          <MaterialIcons name="description" size={28} color={colors.tabIconDefault} />
+          <Text style={[styles.tabLabel, { color: colors.tabIconDefault }]}>Projects</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('/(tabs)/income')}>
-          <MaterialIcons name="payments" size={28} color="rgba(0, 0, 0, 0.45)" />
-          <Text style={styles.tabLabel}>Income</Text>
+          <MaterialIcons name="payments" size={28} color={colors.tabIconDefault} />
+          <Text style={[styles.tabLabel, { color: colors.tabIconDefault }]}>Income</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('/(tabs)/expense')}>
-          <MaterialIcons name="attach-money" size={28} color="rgba(0, 0, 0, 0.45)" />
-          <Text style={styles.tabLabel}>Expense</Text>
+          <MaterialIcons name="attach-money" size={28} color={colors.tabIconDefault} />
+          <Text style={[styles.tabLabel, { color: colors.tabIconDefault }]}>Expense</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('/(tabs)/calendar')}>
-          <MaterialIcons name="event" size={28} color="rgba(0, 0, 0, 0.45)" />
-          <Text style={styles.tabLabel}>Calendar</Text>
+          <MaterialIcons name="event" size={28} color={colors.tabIconDefault} />
+          <Text style={[styles.tabLabel, { color: colors.tabIconDefault }]}>Calendar</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -556,5 +660,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     marginTop: -8,
+  },
+  themeToggleButton: {
+    padding: 8,
+    marginLeft: 'auto',
+  },
+  settingsSection: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  logoutItem: {
+    marginBottom: 0,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingSubtitle: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  themeButton: {
+    padding: 8,
+    borderRadius: 8,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
   },
 });

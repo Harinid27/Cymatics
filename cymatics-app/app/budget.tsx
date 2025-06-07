@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,14 +7,78 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { router } from 'expo-router';
+import BudgetService, { BudgetOverview, BudgetCategory } from '@/src/services/BudgetService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function BudgetScreen() {
+  const { colors } = useTheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [budgetOverview, setBudgetOverview] = useState<BudgetOverview | null>(null);
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [investmentData, setInvestmentData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load budget data on component mount
+  useEffect(() => {
+    loadBudgetData();
+  }, []);
+
+  const loadBudgetData = async () => {
+    try {
+      setError(null);
+      const [overview, categories, investments] = await Promise.all([
+        BudgetService.getBudgetOverview().catch(() => ({
+          currentBalance: 0,
+          receivedAmountThisMonth: 0,
+          totalReceivedChart: []
+        })),
+        BudgetService.getBudgetCategories().catch(() => []),
+        BudgetService.getBudgetComparison().catch(() => []),
+      ]);
+
+      // Ensure data has proper structure
+      setBudgetOverview({
+        currentBalance: overview?.currentBalance || 0,
+        receivedAmountThisMonth: overview?.receivedAmountThisMonth || 0,
+        totalReceivedChart: Array.isArray(overview?.totalReceivedChart) ? overview.totalReceivedChart : [],
+        budgetSplitUp: Array.isArray(overview?.budgetSplitUp) ? overview.budgetSplitUp : []
+      });
+
+      setBudgetCategories(Array.isArray(categories) ? categories : []);
+      setInvestmentData(Array.isArray(investments) ? investments : []);
+    } catch (error) {
+      console.error('Error loading budget data:', error);
+      setError('Failed to load budget data. Please try again.');
+
+      // Set default empty data to prevent undefined errors
+      setBudgetOverview({
+        currentBalance: 0,
+        receivedAmountThisMonth: 0,
+        totalReceivedChart: [],
+        budgetSplitUp: []
+      });
+      setBudgetCategories([]);
+      setInvestmentData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadBudgetData();
+    setIsRefreshing(false);
+  };
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -28,81 +92,73 @@ export default function BudgetScreen() {
     router.back();
   };
 
-  // Sample data for budget split up
-  const budgetSplitData = [
-    { id: 1, name: 'Cymatics', amount: '$42337', color: '#4CAF50' },
-    { id: 2, name: 'Cymatics', amount: '$42337', color: '#2196F3' },
-    { id: 3, name: 'Cymatics', amount: '$42337', color: '#3F51B5' },
-    { id: 4, name: 'Cymatics', amount: '$42337', color: '#E91E63' },
-    { id: 5, name: 'Cymatics', amount: '$42337', color: '#FF5722' },
-    { id: 6, name: 'Cymatics', amount: '$42337', color: '#FF9800' },
-  ];
-
-  // Sample data for investment details
-  const investmentData = [
-    { id: 1, budget: '$54525', expense: '$54525', balance: '$54525' },
-    { id: 2, budget: '$54525', expense: '$54525', balance: '$54525' },
-    { id: 3, budget: '$54525', expense: '$54525', balance: '$54525' },
-  ];
-
-  // Chart data points for the line chart
-  const chartData = [
-    { month: 'JAN', value: 150000 },
-    { month: 'FEB', value: 180000 },
-    { month: 'MAR', value: 450000 },
-    { month: 'APR', value: 180000 },
-    { month: 'MAY', value: 400000 },
-    { month: 'JUN', value: 320000 },
-    { month: 'JUL', value: 300000 },
-  ];
-
-  const renderBudgetSplitItem = (item: any, index: number) => (
+  const renderBudgetSplitItem = (item: BudgetCategory, index: number) => (
     <View key={item.id} style={styles.budgetSplitItem}>
-      <Text style={styles.budgetSplitName}>{item.name}</Text>
-      <Text style={[styles.budgetSplitAmount, { color: item.color }]}>{item.amount}</Text>
+      <Text style={[styles.budgetSplitName, { color: colors.text }]}>{item.name}</Text>
+      <Text style={[styles.budgetSplitAmount, { color: colors.text }]}>
+        ${item.amount.toLocaleString()}
+      </Text>
     </View>
   );
 
   const renderInvestmentItem = (item: any, index: number) => (
-    <View key={item.id} style={styles.investmentSection}>
-      <Text style={styles.investmentTitle}>Investment</Text>
-      <View style={styles.investmentCard}>
+    <View key={index} style={styles.investmentSection}>
+      <Text style={[styles.investmentTitle, { color: colors.text }]}>Investment {index + 1}</Text>
+      <View style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.investmentColumn}>
-          <Text style={styles.investmentLabel}>Budget</Text>
-          <Text style={styles.investmentValue}>{item.budget}</Text>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Budget</Text>
+          <Text style={[styles.investmentValue, { color: colors.text }]}>${item.budget?.toLocaleString() || '0'}</Text>
         </View>
         <View style={styles.investmentColumn}>
-          <Text style={styles.investmentLabel}>Expense</Text>
-          <Text style={[styles.investmentValue, { color: '#FF5722' }]}>{item.expense}</Text>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Expense</Text>
+          <Text style={[styles.investmentValue, { color: colors.text }]}>
+            ${item.expense?.toLocaleString() || '0'}
+          </Text>
         </View>
         <View style={styles.investmentColumn}>
-          <Text style={styles.investmentLabel}>Balance(M)</Text>
-          <Text style={[styles.investmentValue, { color: '#4CAF50' }]}>{item.balance}</Text>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Balance</Text>
+          <Text style={[styles.investmentValue, { color: colors.text }]}>
+            ${item.balance?.toLocaleString() || '0'}
+          </Text>
         </View>
       </View>
     </View>
   );
 
   const renderSimpleChart = () => {
-    const maxValue = 500000;
+    if (!budgetOverview?.totalReceivedChart || budgetOverview.totalReceivedChart.length === 0) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.text }]}>Total Received Amount</Text>
+          <View style={styles.emptyChartContainer}>
+            <MaterialIcons name="show-chart" size={48} color={colors.muted} />
+            <Text style={[styles.emptyChartText, { color: colors.muted }]}>No chart data available</Text>
+          </View>
+        </View>
+      );
+    }
+
+    const chartData = budgetOverview.totalReceivedChart;
+    const values = chartData.map(point => point?.value || 0).filter(val => val > 0);
+    const maxValue = values.length > 0 ? Math.max(...values, 100000) : 100000;
     const chartHeight = 120;
     const chartWidth = 220;
 
     // Calculate positions for each point
     const points = chartData.map((point, index) => ({
-      x: (index / (chartData.length - 1)) * chartWidth,
-      y: chartHeight - (point.value / maxValue) * chartHeight,
-      value: point.value,
-      month: point.month
+      x: chartData.length > 1 ? (index / (chartData.length - 1)) * chartWidth : chartWidth / 2,
+      y: chartHeight - ((point?.value || 0) / maxValue) * chartHeight,
+      value: point?.value || 0,
+      month: point?.month || ''
     }));
 
     return (
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Total Received Amount</Text>
+      <View style={[styles.chartContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.chartTitle, { color: colors.text }]}>Total Received Amount</Text>
         <View style={styles.chartLegend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
-            <Text style={styles.legendText}>AMOUNT RECEIVED</Text>
+            <View style={[styles.legendLine, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>AMOUNT RECEIVED</Text>
           </View>
         </View>
 
@@ -110,11 +166,11 @@ export default function BudgetScreen() {
           {/* Y-axis */}
           <View style={styles.yAxisContainer}>
             <View style={styles.yAxis}>
-              <Text style={styles.yAxisLabel}>500000</Text>
-              <Text style={styles.yAxisLabel}>400000</Text>
-              <Text style={styles.yAxisLabel}>300000</Text>
-              <Text style={styles.yAxisLabel}>200000</Text>
-              <Text style={styles.yAxisLabel}>100000</Text>
+              <Text style={styles.yAxisLabel}>{maxValue.toLocaleString()}</Text>
+              <Text style={styles.yAxisLabel}>{(maxValue * 0.8).toLocaleString()}</Text>
+              <Text style={styles.yAxisLabel}>{(maxValue * 0.6).toLocaleString()}</Text>
+              <Text style={styles.yAxisLabel}>{(maxValue * 0.4).toLocaleString()}</Text>
+              <Text style={styles.yAxisLabel}>{(maxValue * 0.2).toLocaleString()}</Text>
             </View>
             <View style={styles.yAxisLine} />
           </View>
@@ -156,8 +212,10 @@ export default function BudgetScreen() {
 
             {/* X-axis labels */}
             <View style={styles.xAxis}>
-              {chartData.map((point) => (
-                <Text key={point.month} style={styles.xAxisLabel}>{point.month}</Text>
+              {chartData.map((point, index) => (
+                <Text key={point?.month || index} style={styles.xAxisLabel}>
+                  {point?.month || ''}
+                </Text>
               ))}
             </View>
           </View>
@@ -167,50 +225,98 @@ export default function BudgetScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Budget</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Budget</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Balance Cards */}
-        <View style={styles.balanceCards}>
-          <View style={styles.currentBalanceCard}>
-            <Text style={styles.cardLabel}>Current Balance</Text>
-            <Text style={styles.currentBalanceAmount}>$3434634</Text>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#000']}
+            tintColor="#000"
+          />
+        }
+      >
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.muted }]}>Loading budget data...</Text>
           </View>
-          <View style={styles.receivedAmountCard}>
-            <Text style={styles.cardLabel}>Received Amount</Text>
-            <Text style={styles.receivedAmount}>$46343</Text>
-            <Text style={styles.thisMonth}>This Month</Text>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={64} color={colors.text} />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>Error Loading Budget</Text>
+            <Text style={[styles.errorMessage, { color: colors.muted }]}>{error}</Text>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadBudgetData}>
+              <Text style={[styles.retryButtonText, { color: colors.background }]}>Try Again</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <>
+            {/* Balance Cards */}
+            <View style={styles.balanceCards}>
+              <View style={[styles.currentBalanceCard, { backgroundColor: colors.text }]}>
+                <Text style={[styles.cardLabel, { color: colors.muted }]}>Current Balance</Text>
+                <Text style={[styles.currentBalanceAmount, { color: colors.background }]}>
+                  ${budgetOverview?.currentBalance?.toLocaleString() || '0'}
+                </Text>
+              </View>
+              <View style={[styles.receivedAmountCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.cardLabel, { color: colors.muted }]}>Received Amount</Text>
+                <Text style={[styles.receivedAmount, { color: colors.text }]}>
+                  ${budgetOverview?.receivedAmountThisMonth?.toLocaleString() || '0'}
+                </Text>
+                <Text style={[styles.thisMonth, { color: colors.muted }]}>This Month</Text>
+              </View>
+            </View>
 
-        {/* Chart */}
-        {renderSimpleChart()}
+            {/* Chart */}
+            {renderSimpleChart()}
 
-        {/* Budget Split Up */}
-        <View style={styles.budgetSplitContainer}>
-          <Text style={styles.sectionTitle}>Budget Split Up</Text>
-          <View style={styles.budgetSplitGrid}>
-            {budgetSplitData.map((item, index) => renderBudgetSplitItem(item, index))}
-          </View>
-        </View>
+            {/* Budget Split Up */}
+            <View style={styles.budgetSplitContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Budget Split Up</Text>
+              {budgetCategories && budgetCategories.length > 0 ? (
+                <View style={styles.budgetSplitGrid}>
+                  {budgetCategories.map((item, index) => renderBudgetSplitItem(item, index))}
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Text style={[styles.emptyText, { color: colors.muted }]}>No budget categories available</Text>
+                </View>
+              )}
+            </View>
 
-        {/* Balance Details */}
-        <View style={styles.balanceDetailsContainer}>
-          <Text style={styles.balanceDetailsTitle}>Balance Details</Text>
-          {investmentData.map((item, index) => renderInvestmentItem(item, index))}
-        </View>
+            {/* Balance Details */}
+            <View style={styles.balanceDetailsContainer}>
+              <Text style={[styles.balanceDetailsTitle, { color: colors.text }]}>Balance Details</Text>
+              {investmentData && investmentData.length > 0 ? (
+                investmentData.map((item, index) => renderInvestmentItem(item, index))
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Text style={[styles.emptyText, { color: colors.muted }]}>No investment data available</Text>
+                </View>
+              )}
+            </View>
 
-        {/* Bottom Padding */}
-        <View style={styles.bottomPadding} />
+            {/* Bottom Padding */}
+            <View style={styles.bottomPadding} />
+          </>
+        )}
       </ScrollView>
 
       {/* Menu Drawer */}
@@ -462,4 +568,66 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 50,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    paddingHorizontal: 20,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ff6b6b',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  emptyChartContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyChartText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 10,
+  },
 });
+
+export default BudgetScreen;

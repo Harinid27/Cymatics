@@ -9,15 +9,20 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { calendarService, CalendarEventData, DayEvents } from '@/src/services/CalendarService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Use types from CalendarService
 
 export default function CalendarScreen() {
+  const { colors } = useTheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -25,6 +30,20 @@ export default function CalendarScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Event creation/editing modal states
+  const [isEventModalVisible, setIsEventModalVisible] = useState(false);
+  const [isEventDetailModalVisible, setIsEventDetailModalVisible] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventData | null>(null);
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
+
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredEvents, setFilteredEvents] = useState<DayEvents>({});
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -91,10 +110,11 @@ export default function CalendarScreen() {
     }
   };
 
-  // Handle event press (for future implementation)
+  // Handle event press - show event details
   const handleEventPress = (event: CalendarEventData) => {
     console.log('Event pressed:', event);
-    // TODO: Navigate to event details or show modal
+    setSelectedEvent(event);
+    setIsEventDetailModalVisible(true);
   };
 
   // Handle refresh
@@ -103,10 +123,163 @@ export default function CalendarScreen() {
     loadCalendarData();
   };
 
+  // Event creation functions
+  const handleCreateEvent = () => {
+    // Set default time for selected date
+    const selectedDateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDate);
+    const defaultStartTime = new Date(selectedDateTime);
+    defaultStartTime.setHours(9, 0, 0, 0); // 9:00 AM
+    const defaultEndTime = new Date(selectedDateTime);
+    defaultEndTime.setHours(10, 0, 0, 0); // 10:00 AM
+
+    setEventTitle('');
+    setEventStartTime(defaultStartTime.toISOString().slice(0, 16)); // Format for datetime-local input
+    setEventEndTime(defaultEndTime.toISOString().slice(0, 16));
+    setIsEditingEvent(false);
+    setIsEventModalVisible(true);
+  };
+
+  const handleEditEvent = () => {
+    if (!selectedEvent) return;
+
+    setEventTitle(selectedEvent.title);
+    setEventStartTime(selectedEvent.startDate.toISOString().slice(0, 16));
+    setEventEndTime(selectedEvent.endDate?.toISOString().slice(0, 16) || selectedEvent.startDate.toISOString().slice(0, 16));
+    setIsEditingEvent(true);
+    setIsEventDetailModalVisible(false);
+    setIsEventModalVisible(true);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventTitle.trim() || !eventStartTime || !eventEndTime) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    const startDate = new Date(eventStartTime);
+    const endDate = new Date(eventEndTime);
+
+    if (endDate <= startDate) {
+      Alert.alert('Error', 'End time must be after start time');
+      return;
+    }
+
+    setIsCreatingEvent(true);
+
+    try {
+      if (isEditingEvent && selectedEvent) {
+        // Update existing event
+        const updatedEvent = await calendarService.updateCalendarEvent(
+          selectedEvent.id,
+          eventTitle,
+          startDate,
+          endDate
+        );
+
+        if (updatedEvent) {
+          Alert.alert('Success', 'Event updated successfully');
+          setIsEventModalVisible(false);
+          loadCalendarData(); // Refresh calendar data
+        } else {
+          Alert.alert('Error', 'Failed to update event');
+        }
+      } else {
+        // Create new event
+        const newEvent = await calendarService.createCalendarEvent(
+          eventTitle,
+          startDate,
+          endDate
+        );
+
+        if (newEvent) {
+          Alert.alert('Success', 'Event created successfully');
+          setIsEventModalVisible(false);
+          loadCalendarData(); // Refresh calendar data
+        } else {
+          Alert.alert('Error', 'Failed to create event');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving event:', error);
+      Alert.alert('Error', 'Failed to save event. Please try again.');
+    } finally {
+      setIsCreatingEvent(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+
+    Alert.alert(
+      'Delete Event',
+      'Are you sure you want to delete this event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const success = await calendarService.deleteCalendarEvent(selectedEvent.id);
+
+              if (success) {
+                Alert.alert('Success', 'Event deleted successfully');
+                setIsEventDetailModalVisible(false);
+                loadCalendarData(); // Refresh calendar data
+              } else {
+                Alert.alert('Error', 'Failed to delete event');
+              }
+            } catch (error) {
+              console.error('Error deleting event:', error);
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Search functionality
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setFilteredEvents(events);
+      return;
+    }
+
+    const filtered: DayEvents = {};
+    const lowerQuery = query.toLowerCase();
+
+    Object.keys(events).forEach(dateKey => {
+      const dayEvents = events[dateKey];
+      const matchingEvents = dayEvents.filter(event =>
+        event.title.toLowerCase().includes(lowerQuery) ||
+        event.description?.toLowerCase().includes(lowerQuery) ||
+        event.projectCode?.toLowerCase().includes(lowerQuery)
+      );
+
+      if (matchingEvents.length > 0) {
+        filtered[dateKey] = matchingEvents;
+      }
+    });
+
+    setFilteredEvents(filtered);
+  };
+
   // Load data on component mount
   useEffect(() => {
     loadCalendarData();
   }, []);
+
+  // Update filtered events when events change
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      handleSearch(searchQuery);
+    } else {
+      setFilteredEvents(events);
+    }
+  }, [events, searchQuery]);
 
   // Days of the week (starting with Monday like in the image)
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -192,7 +365,7 @@ export default function CalendarScreen() {
            currentDate.getFullYear() === today.getFullYear();
   };
 
-  // Get events for a specific date
+  // Get events for a specific date (using filtered events if search is active)
   const getEventsForDate = (date: number): CalendarEventData[] => {
     try {
       if (!date || isNaN(date) || !currentDate || isNaN(currentDate.getTime())) {
@@ -205,12 +378,13 @@ export default function CalendarScreen() {
       }
 
       const dateKey = targetDate.toISOString().split('T')[0];
+      const eventsToUse = searchQuery.trim() ? filteredEvents : events;
 
-      if (!events || typeof events !== 'object') {
+      if (!eventsToUse || typeof eventsToUse !== 'object') {
         return [];
       }
 
-      return Array.isArray(events[dateKey]) ? events[dateKey] : [];
+      return Array.isArray(eventsToUse[dateKey]) ? eventsToUse[dateKey] : [];
     } catch (error) {
       console.warn('Error getting events for date:', date, error);
       return [];
@@ -296,22 +470,36 @@ export default function CalendarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
-          <MaterialIcons name="menu" size={24} color="#000" />
+          <MaterialIcons name="menu" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Calendar</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Calendar</Text>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#999" />
-          <Text style={styles.searchPlaceholder}>Search</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search events..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <MaterialIcons name="clear" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -386,6 +574,155 @@ export default function CalendarScreen() {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab} onPress={handleCreateEvent}>
+        <MaterialIcons name="add" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Event Creation/Edit Modal */}
+      <Modal
+        visible={isEventModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsEventModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setIsEventModalVisible(false)}>
+              <Text style={styles.modalCancelButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {isEditingEvent ? 'Edit Event' : 'New Event'}
+            </Text>
+            <TouchableOpacity
+              onPress={handleSaveEvent}
+              disabled={isCreatingEvent}
+            >
+              <Text style={[styles.modalSaveButton, isCreatingEvent && styles.disabledButton]}>
+                {isCreatingEvent ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Event Title</Text>
+              <TextInput
+                style={styles.textInput}
+                value={eventTitle}
+                onChangeText={setEventTitle}
+                placeholder="Enter event title"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Start Time</Text>
+              <TextInput
+                style={styles.textInput}
+                value={eventStartTime}
+                onChangeText={setEventStartTime}
+                placeholder="YYYY-MM-DDTHH:MM"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>End Time</Text>
+              <TextInput
+                style={styles.textInput}
+                value={eventEndTime}
+                onChangeText={setEventEndTime}
+                placeholder="YYYY-MM-DDTHH:MM"
+                placeholderTextColor="#999"
+              />
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Event Detail Modal */}
+      <Modal
+        visible={isEventDetailModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsEventDetailModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setIsEventDetailModalVisible(false)}>
+              <Text style={styles.modalCancelButton}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Event Details</Text>
+            <TouchableOpacity onPress={handleEditEvent}>
+              <Text style={styles.modalSaveButton}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+
+          {selectedEvent && (
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.eventDetailContainer}>
+                <Text style={styles.eventDetailTitle}>{selectedEvent.title}</Text>
+
+                <View style={styles.eventDetailRow}>
+                  <MaterialIcons name="event" size={20} color="#666" />
+                  <Text style={styles.eventDetailText}>
+                    {selectedEvent.startDate.toLocaleDateString()}
+                  </Text>
+                </View>
+
+                <View style={styles.eventDetailRow}>
+                  <MaterialIcons name="access-time" size={20} color="#666" />
+                  <Text style={styles.eventDetailText}>
+                    {selectedEvent.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {selectedEvent.endDate && ` - ${selectedEvent.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                  </Text>
+                </View>
+
+                {selectedEvent.type && (
+                  <View style={styles.eventDetailRow}>
+                    <MaterialIcons name="category" size={20} color="#666" />
+                    <Text style={styles.eventDetailText}>{selectedEvent.type}</Text>
+                  </View>
+                )}
+
+                {selectedEvent.projectCode && (
+                  <View style={styles.eventDetailRow}>
+                    <MaterialIcons name="work" size={20} color="#666" />
+                    <Text style={styles.eventDetailText}>{selectedEvent.projectCode}</Text>
+                  </View>
+                )}
+
+                {selectedEvent.location && (
+                  <View style={styles.eventDetailRow}>
+                    <MaterialIcons name="location-on" size={20} color="#666" />
+                    <Text style={styles.eventDetailText}>{selectedEvent.location}</Text>
+                  </View>
+                )}
+
+                {selectedEvent.description && (
+                  <View style={styles.eventDetailRow}>
+                    <MaterialIcons name="description" size={20} color="#666" />
+                    <Text style={styles.eventDetailText}>{selectedEvent.description}</Text>
+                  </View>
+                )}
+
+                {/* Only show delete button for calendar events (not project events) */}
+                {selectedEvent.type === 'calendar' && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleDeleteEvent}
+                  >
+                    <MaterialIcons name="delete" size={20} color="#fff" />
+                    <Text style={styles.deleteButtonText}>Delete Event</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
     </SafeAreaView>
@@ -431,9 +768,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     marginLeft: 10,
-    color: '#999',
+    color: '#000',
     fontSize: 16,
   },
   scrollView: {
@@ -590,5 +928,114 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 50,
+  },
+  // Floating Action Button
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  modalCancelButton: {
+    fontSize: 16,
+    color: '#666',
+  },
+  modalSaveButton: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000',
+    backgroundColor: '#fff',
+  },
+  // Event Detail Modal
+  eventDetailContainer: {
+    padding: 20,
+  },
+  eventDetailTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 20,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  eventDetailText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+    flex: 1,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6B6B',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 30,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

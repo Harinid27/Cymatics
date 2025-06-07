@@ -14,12 +14,17 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { router } from 'expo-router';
-import DashboardService, { DashboardStats, TodaySchedule, IncomeExpenseChart, ProjectDetailsChart, ExpenseBreakdownChart } from '../../src/services/DashboardService';
+import DashboardService, { DashboardStats, TodaySchedule, UpcomingShoot, IncomeExpenseChart, ProjectDetailsChart, ExpenseBreakdownChart } from '../../src/services/DashboardService';
+import EnhancedCharts from '../../src/components/charts/EnhancedCharts';
+import ChartDataTransformer from '../../src/utils/chartDataTransformer';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function DashboardScreen() {
+  const { colors } = useTheme();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [todaySchedule, setTodaySchedule] = useState<TodaySchedule[]>([]);
+  const [upcomingShoots, setUpcomingShoots] = useState<UpcomingShoot[]>([]);
   const [incomeExpenseChart, setIncomeExpenseChart] = useState<IncomeExpenseChart | null>(null);
   const [projectDetailsChart, setProjectDetailsChart] = useState<ProjectDetailsChart | null>(null);
   const [expenseBreakdownChart, setExpenseBreakdownChart] = useState<ExpenseBreakdownChart | null>(null);
@@ -61,6 +66,7 @@ export default function DashboardScreen() {
       console.log('Dashboard data received:', {
         stats: data.stats,
         todayScheduleCount: data.todaySchedule.length,
+        upcomingShootsCount: data.upcomingShoots.length,
         incomeExpenseChart: data.incomeExpenseChart,
         projectDetailsChart: data.projectDetailsChart,
         expenseBreakdownChart: data.expenseBreakdownChart,
@@ -68,12 +74,13 @@ export default function DashboardScreen() {
 
       setDashboardStats(data.stats);
       setTodaySchedule(data.todaySchedule);
+      setUpcomingShoots(data.upcomingShoots);
       setIncomeExpenseChart(data.incomeExpenseChart);
       setProjectDetailsChart(data.projectDetailsChart);
       setExpenseBreakdownChart(data.expenseBreakdownChart);
 
       // Only set error if ALL data is missing (indicating connection issue)
-      if (!data.stats && data.todaySchedule.length === 0 &&
+      if (!data.stats && data.todaySchedule.length === 0 && data.upcomingShoots.length === 0 &&
           !data.incomeExpenseChart && !data.projectDetailsChart && !data.expenseBreakdownChart) {
         setError('Unable to load dashboard data. Please check your connection.');
       }
@@ -122,49 +129,69 @@ export default function DashboardScreen() {
     });
   };
 
+  // Format date for upcoming shoots
+  const formatShootDate = (dateString: string): { date: string; time: string } => {
+    const date = new Date(dateString);
+    return {
+      date: date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      }),
+      time: date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    };
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.leftSection}>
           <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
-            <IconSymbol name="line.horizontal.3" size={24} color="#000" />
+            <IconSymbol name="line.horizontal.3" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Dashboard</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard</Text>
         </View>
         <View style={styles.rightSection}>
           <TouchableOpacity style={styles.messageButton} onPress={handleMessagePress}>
-            <IconSymbol name="message.fill" size={24} color="#000" />
+            <IconSymbol name="message.fill" size={24} color={colors.text} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-            <IconSymbol name="person.circle.fill" size={32} color="#000" />
+            <IconSymbol name="person.circle.fill" size={32} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Fixed Content - Search Bar, Status Nav, and Income Cards */}
-      <View style={styles.fixedContent}>
+      <View style={[styles.fixedContent, { backgroundColor: colors.background }]}>
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <IconSymbol name="magnifyingglass" size={20} color="#999" />
-          <Text style={styles.searchPlaceholder}>Search</Text>
+        <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
+          <Text style={[styles.searchPlaceholder, { color: colors.muted }]}>Search</Text>
         </View>
 
         {/* Status Navigation */}
         <View style={styles.statusNav}>
-          <TouchableOpacity style={styles.statusTab} onPress={handleStatusPress}>
-            <MaterialIcons name="donut-large" size={20} color="#000" />
-            <Text style={styles.statusText}>Status</Text>
+          <TouchableOpacity style={[styles.statusTab, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleStatusPress}>
+            <MaterialIcons name="donut-large" size={20} color={colors.text} />
+            <Text style={[styles.statusText, { color: colors.text }]}>Status</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statusTab} onPress={handleClientsPress}>
-            <Ionicons name="people-outline" size={20} color="#000" />
-            <Text style={styles.statusText}>Clients</Text>
+          <TouchableOpacity style={[styles.statusTab, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleClientsPress}>
+            <Ionicons name="people-outline" size={20} color={colors.text} />
+            <Text style={[styles.statusText, { color: colors.text }]}>Clients</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.statusTab}>
-            <Ionicons name="location-outline" size={20} color="#000" />
-            <Text style={styles.statusText}>Map</Text>
+          <TouchableOpacity style={[styles.statusTab, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => router.push('/maps')}>
+            <Ionicons name="location-outline" size={20} color={colors.text} />
+            <Text style={[styles.statusText, { color: colors.text }]}>Map</Text>
           </TouchableOpacity>
         </View>
 
@@ -179,45 +206,45 @@ export default function DashboardScreen() {
           <View style={styles.statsContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4285F4" />
-                <Text style={styles.loadingText}>Loading dashboard...</Text>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.muted }]}>Loading dashboard...</Text>
               </View>
             ) : error ? (
               <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
+                <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
+                <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadDashboardData}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Overall Income</Text>
-                  <Text style={styles.statValue}>
+                <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Overall Income</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {dashboardStats ? formatCurrency(dashboardStats.totalIncome) : '$0'}
                   </Text>
-                  <Text style={styles.statChange}>Total earned</Text>
+                  <Text style={[styles.statChange, { color: colors.muted }]}>Total earned</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Total Expense</Text>
-                  <Text style={styles.statValue}>
+                <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Total Expense</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {dashboardStats ? formatCurrency(dashboardStats.totalExpense) : '$0'}
                   </Text>
-                  <Text style={styles.statChange}>Total spent</Text>
+                  <Text style={[styles.statChange, { color: colors.muted }]}>Total spent</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Current Balance</Text>
-                  <Text style={styles.statValue}>
+                <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Current Balance</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {dashboardStats ? formatCurrency(dashboardStats.currentBalance) : '$0'}
                   </Text>
-                  <Text style={styles.statChange}>Available</Text>
+                  <Text style={[styles.statChange, { color: colors.muted }]}>Available</Text>
                 </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>Pending Amount</Text>
-                  <Text style={styles.statValue}>
+                <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.statLabel, { color: colors.muted }]}>Pending Amount</Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
                     {dashboardStats ? formatCurrency(dashboardStats.pendingAmount) : '$0'}
                   </Text>
-                  <Text style={styles.statChange}>
+                  <Text style={[styles.statChange, { color: colors.muted }]}>
                     {dashboardStats ? `${dashboardStats.totalProjects} Projects` : '0 Projects'}
                   </Text>
                 </View>
@@ -231,14 +258,14 @@ export default function DashboardScreen() {
 
       {/* Vertical Scrollable Content - Analytics only */}
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#4285F4']}
-            tintColor="#4285F4"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
@@ -246,9 +273,9 @@ export default function DashboardScreen() {
         {/* Today Shoot */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Schedule</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Schedule</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')}>
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>See all</Text>
             </TouchableOpacity>
           </View>
 
@@ -289,223 +316,66 @@ export default function DashboardScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Shoots</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/projects')}>
               <Text style={styles.seeAllText}>See all</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.upcomingShoot}>
-            <View style={styles.upcomingLeft}>
-              <Text style={styles.upcomingTitle}>Advertisement</Text>
-              <Text style={styles.upcomingCompany}>Turbo Engineering (02)</Text>
-            </View>
-            <View style={styles.upcomingRight}>
-              <Text style={styles.upcomingDate}>27/07/24</Text>
-              <Text style={styles.upcomingTime}>24:00 AM</Text>
-            </View>
-          </View>
+          {upcomingShoots.length > 0 ? (
+            upcomingShoots.slice(0, 3).map((shoot) => {
+              const { date, time } = formatShootDate(shoot.shootStartDate);
 
-          <View style={styles.upcomingShoot}>
-            <View style={styles.upcomingLeft}>
-              <Text style={styles.upcomingTitle}>Advertisement</Text>
-              <Text style={styles.upcomingCompany}>Turbo Engineering (02)</Text>
+              return (
+                <View key={shoot.id} style={styles.upcomingShoot}>
+                  <View style={styles.upcomingLeft}>
+                    <Text style={styles.upcomingTitle}>
+                      {shoot.type || 'Photography'}
+                    </Text>
+                    <Text style={styles.upcomingCompany}>
+                      {shoot.client?.company || shoot.company || 'Client'} ({shoot.code})
+                    </Text>
+                  </View>
+                  <View style={styles.upcomingRight}>
+                    <Text style={styles.upcomingDate}>{date}</Text>
+                    <Text style={styles.upcomingTime}>{time}</Text>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyStateCard}>
+              <IconSymbol name="camera" size={40} color="#ccc" />
+              <Text style={styles.emptyStateText}>No upcoming shoots scheduled</Text>
+              <TouchableOpacity
+                style={styles.addScheduleButton}
+                onPress={() => router.push('/(tabs)/projects')}
+              >
+                <Text style={styles.addScheduleButtonText}>Add Project</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.upcomingRight}>
-              <Text style={styles.upcomingDate}>27/07/24</Text>
-              <Text style={styles.upcomingTime}>24:00 AM</Text>
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* Analytics Section */}
+        {/* Enhanced Analytics Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Analytics</Text>
         </View>
 
-        {/* Income vs Expense Chart */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Income Vs Expense</Text>
-          <View style={styles.chartLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
-              <Text style={styles.legendText}>Income</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#FF6B6B' }]} />
-              <Text style={styles.legendText}>Expense</Text>
-            </View>
+        {/* Enhanced Charts */}
+        {chartsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4285F4" />
+            <Text style={styles.loadingText}>Loading charts...</Text>
           </View>
-
-          {chartsLoading ? (
-            <View style={styles.chartLoadingContainer}>
-              <ActivityIndicator size="large" color="#4285F4" />
-              <Text style={styles.chartLoadingText}>Loading chart data...</Text>
-            </View>
-          ) : incomeExpenseChart ? (
-            <View style={styles.barChart}>
-              <View style={styles.chartYAxis}>
-                <Text style={styles.yAxisLabel}>$50k</Text>
-                <Text style={styles.yAxisLabel}>$30k</Text>
-                <Text style={styles.yAxisLabel}>$10k</Text>
-              </View>
-              <View style={styles.barsContainer}>
-                {(incomeExpenseChart.combined?.labels || []).slice(0, 6).map((label, index) => {
-                  const incomeValue = incomeExpenseChart.income?.datasets?.[0]?.data?.[index] || 0;
-                  const expenseValue = incomeExpenseChart.expense?.datasets?.[0]?.data?.[index] || 0;
-                  const allValues = [
-                    ...(incomeExpenseChart.combined?.datasets?.[0]?.data || []),
-                    ...(incomeExpenseChart.combined?.datasets?.[1]?.data || [])
-                  ];
-                  const maxValue = Math.max(...allValues, 1); // Ensure maxValue is at least 1
-                  const incomeHeight = maxValue > 0 ? Math.max((incomeValue / maxValue) * 100, 5) : 5;
-                  const expenseHeight = maxValue > 0 ? Math.max((expenseValue / maxValue) * 100, 5) : 5;
-
-                  return (
-                    <View key={index} style={styles.barGroup}>
-                      <View style={styles.barPair}>
-                        <View style={[styles.bar, styles.incomeBar, { height: incomeHeight }]} />
-                        <View style={[styles.bar, styles.expenseBar, { height: expenseHeight }]} />
-                      </View>
-                      <Text style={styles.xAxisLabel}>{label.slice(0, 3)}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-
-              {/* Show empty state message when all data is zero */}
-              {(() => {
-                const allChartValues = [
-                  ...(incomeExpenseChart.combined?.datasets?.[0]?.data || []),
-                  ...(incomeExpenseChart.combined?.datasets?.[1]?.data || [])
-                ];
-                return allChartValues.every(val => val === 0);
-              })() && (
-                <View style={styles.emptyChartMessage}>
-                  <Text style={styles.emptyChartText}>No income/expense data yet</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.chartErrorContainer}>
-              <Text style={styles.chartErrorText}>
-                {error ? 'Backend connection needed for chart data' : 'Unable to load chart data'}
-              </Text>
-              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
-                <Text style={styles.chartRetryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Project Details Chart */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Project Details</Text>
-          {chartsLoading ? (
-            <View style={styles.chartLoadingContainer}>
-              <ActivityIndicator size="large" color="#4285F4" />
-              <Text style={styles.chartLoadingText}>Loading project data...</Text>
-            </View>
-          ) : projectDetailsChart ? (
-            <View style={styles.lineChart}>
-              <View style={styles.lineChartArea}>
-                <View style={styles.lineChartLine} />
-                <View style={styles.lineChartDot} />
-              </View>
-              <View style={styles.lineChartXAxis}>
-                {(projectDetailsChart.byMonth?.labels || []).slice(0, 8).map((month, index) => (
-                  <Text key={index} style={styles.lineChartXLabel}>{month.slice(0, 3)}</Text>
-                ))}
-              </View>
-              <View style={styles.projectStatsContainer}>
-                <Text style={styles.projectStatsText}>
-                  Total Projects: {projectDetailsChart.byMonth?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 0}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.chartErrorContainer}>
-              <Text style={styles.chartErrorText}>
-                {error ? 'Backend connection needed for project data' : 'Unable to load project data'}
-              </Text>
-              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
-                <Text style={styles.chartRetryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {/* Expense Details */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Expense Details</Text>
-          {chartsLoading ? (
-            <View style={styles.chartLoadingContainer}>
-              <ActivityIndicator size="large" color="#4285F4" />
-              <Text style={styles.chartLoadingText}>Loading expense data...</Text>
-            </View>
-          ) : expenseBreakdownChart ? (
-            <View style={styles.pieChartContainer}>
-              {/* Simple but effective pie chart */}
-              <View style={styles.pieChartWrapper}>
-                {/* Full circle background */}
-                <View style={styles.pieBackground} />
-
-                {/* Colored segments based on real data */}
-                {(expenseBreakdownChart.byCategory?.datasets?.[0]?.backgroundColor || []).slice(0, 6).map((color, index) => {
-                  const rotation = (index * 60) % 360; // Distribute evenly
-                  return (
-                    <View
-                      key={index}
-                      style={[
-                        styles.pieSlice,
-                        {
-                          backgroundColor: color,
-                          transform: [{ rotate: `${rotation}deg` }]
-                        }
-                      ]}
-                    />
-                  );
-                })}
-
-                {/* Center white circle for donut effect */}
-                <View style={styles.pieCenter} />
-              </View>
-
-              {/* Dynamic labels based on real data */}
-              {(expenseBreakdownChart.byCategory?.labels || []).slice(0, 6).map((label, index) => {
-                const value = expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.[index] || 0;
-                const total = expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 1;
-                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-
-                return (
-                  <View key={index} style={[styles.pieLabel, styles[`label${index + 1}` as keyof typeof styles]]}>
-                    <Text style={styles.pieLabelPercent}>{percentage}%</Text>
-                    <Text style={styles.pieLabelCategory}>{label.slice(0, 8)}</Text>
-                  </View>
-                );
-              })}
-
-              <Text style={styles.pieChartValue}>
-                {formatCurrency(expenseBreakdownChart.byCategory?.datasets?.[0]?.data?.reduce((a, b) => a + b, 0) || 0)}
-              </Text>
-
-              {/* Show empty state message when all data is zero */}
-              {(expenseBreakdownChart.byCategory?.datasets?.[0]?.data || []).every(val => val === 0) && (
-                <View style={styles.emptyChartMessage}>
-                  <Text style={styles.emptyChartText}>No expense data yet</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.chartErrorContainer}>
-              <Text style={styles.chartErrorText}>
-                {error ? 'Backend connection needed for expense data' : 'Unable to load expense data'}
-              </Text>
-              <TouchableOpacity style={styles.chartRetryButton} onPress={loadDashboardData}>
-                <Text style={styles.chartRetryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        ) : (
+          <EnhancedCharts
+            {...ChartDataTransformer.transformAllChartData(
+              incomeExpenseChart,
+              projectDetailsChart,
+              expenseBreakdownChart
+            )}
+          />
+        )}
 
         {/* Bottom padding for tab bar */}
         <View style={styles.bottomPadding} />

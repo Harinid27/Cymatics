@@ -29,6 +29,7 @@ interface UserContextType {
   refreshToken: () => Promise<boolean>;
   isTokenExpired: () => boolean;
   getTokenExpiryTime: () => Date | null;
+  checkAuthStatus: () => Promise<void>;
 }
 
 // Remove hardcoded default data - will be loaded from API
@@ -315,7 +316,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       clearError,
       refreshToken,
       isTokenExpired,
-      getTokenExpiryTime
+      getTokenExpiryTime,
+      checkAuthStatus
     }}>
       {children}
     </UserContext.Provider>

@@ -19,6 +19,8 @@ export interface Income {
     id: number;
     code: string;
     name: string;
+    status: string | null;
+    pendingAmt: number;
   };
   createdAt: string;
   updatedAt: string;
@@ -110,12 +112,16 @@ class FinancialService {
         params
       );
 
-      if (response.success && response.data) {
-        // Ensure data is always an array
-        const data = Array.isArray(response.data.data) ? response.data.data : [];
+      if (response.success) {
+        // The backend returns data directly, not wrapped in another data property
         return {
-          ...response.data,
-          data,
+          data: Array.isArray(response.data) ? response.data : [],
+          pagination: response.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+          },
         };
       }
 
@@ -153,11 +159,8 @@ class FinancialService {
       );
 
       if (response.success && response.data) {
-        // Ensure chartData is always an array
-        const chartData = Array.isArray(response.data.chartData) ? response.data.chartData : [];
-        return {
-          chartData,
-        };
+        // The backend returns { chartData: [...] } directly
+        return response.data;
       }
 
       // Return empty chart data if API call fails
@@ -258,12 +261,16 @@ class FinancialService {
         params
       );
 
-      if (response.success && response.data) {
-        // Ensure data is always an array
-        const data = Array.isArray(response.data.data) ? response.data.data : [];
+      if (response.success) {
+        // The backend returns data directly, not wrapped in another data property
         return {
-          ...response.data,
-          data,
+          data: Array.isArray(response.data) ? response.data : [],
+          pagination: response.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+          },
         };
       }
 
@@ -291,6 +298,24 @@ class FinancialService {
   }
 
   /**
+   * Get expense by ID
+   */
+  async getExpenseById(id: number): Promise<Expense | null> {
+    try {
+      const response = await ApiService.get<Expense>(`${this.baseEndpoint}/expenses/${id}`);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch expense:', error);
+      return null;
+    }
+  }
+
+  /**
    * Create new expense entry
    */
   async createExpense(expenseData: CreateExpenseData): Promise<Expense | null> {
@@ -304,6 +329,24 @@ class FinancialService {
       return null;
     } catch (error) {
       console.error('Failed to create expense:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update expense
+   */
+  async updateExpense(id: number, expenseData: Partial<CreateExpenseData>): Promise<Expense | null> {
+    try {
+      const response = await ApiService.put<Expense>(`${this.baseEndpoint}/expenses/${id}`, expenseData);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to update expense:', error);
       return null;
     }
   }
