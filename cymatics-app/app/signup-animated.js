@@ -34,6 +34,8 @@ export default function SignupAnimatedScreen() {
   const [showOTPInput, setShowOTPInput] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [canResend, setCanResend] = useState(true);
 
   // Animation values
   const logoPosition = useRef(new Animated.Value(0)).current; // Start at center
@@ -55,6 +57,25 @@ export default function SignupAnimatedScreen() {
 
     return () => clearTimeout(splashTimer);
   }, [isAuthenticated]);
+
+  // Timer effect for OTP resend
+  useEffect(() => {
+    let interval = null;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(timer => {
+          if (timer <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return timer - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
 
   const startLogoTransition = () => {
     // Calculate target position for logo (from perfect center to top)
@@ -125,6 +146,8 @@ export default function SignupAnimatedScreen() {
       if (result) {
         setOtpSent(true);
         setShowOTPInput(true);
+        setCanResend(false);
+        setResendTimer(60); // Start 60-second countdown
         Alert.alert(
           'OTP Sent',
           `A 6-digit verification code has been sent to ${email}. Please check your email.`,
@@ -174,12 +197,16 @@ export default function SignupAnimatedScreen() {
   };
 
   const handleResendOTP = async () => {
+    if (!canResend) return;
+
     setIsLoading(true);
 
     try {
       const result = await sendOTP(email);
 
       if (result) {
+        setCanResend(false);
+        setResendTimer(60); // Start 60-second countdown
         Alert.alert('OTP Resent', 'A new verification code has been sent to your email.');
       } else {
         Alert.alert('Error', 'Failed to resend OTP. Please try again.');
@@ -284,9 +311,9 @@ export default function SignupAnimatedScreen() {
                       disabled={isLoading}
                     >
                       {isLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={colors.background} size="small" />
                       ) : (
-                        <Text style={styles.primaryButtonText}>Send verification code</Text>
+                        <Text style={[styles.primaryButtonText, { color: colors.background }]}>Send verification code</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -315,19 +342,24 @@ export default function SignupAnimatedScreen() {
                       disabled={isLoading}
                     >
                       {isLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={colors.background} size="small" />
                       ) : (
-                        <Text style={styles.primaryButtonText}>Verify & Continue</Text>
+                        <Text style={[styles.primaryButtonText, { color: colors.background }]}>Verify & Continue</Text>
                       )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={styles.resendButton}
+                      style={[styles.resendButton, (!canResend || isLoading) && styles.disabledButton]}
                       onPress={handleResendOTP}
-                      disabled={isLoading}
+                      disabled={!canResend || isLoading}
                     >
-                      <Text style={styles.resendButtonText}>
-                        Didn't receive the code? Resend
+                      <Text style={[styles.resendButtonText, {
+                        color: canResend && !isLoading ? colors.primary : colors.muted
+                      }]}>
+                        {!canResend && resendTimer > 0
+                          ? `Resend OTP in ${resendTimer}s`
+                          : 'Didn\'t receive the code? Resend'
+                        }
                       </Text>
                     </TouchableOpacity>
 
@@ -337,10 +369,12 @@ export default function SignupAnimatedScreen() {
                         setShowOTPInput(false);
                         setOtp('');
                         setOtpSent(false);
+                        setCanResend(true);
+                        setResendTimer(0);
                       }}
                       disabled={isLoading}
                     >
-                      <Text style={styles.backButtonText}>← Back to email</Text>
+                      <Text style={[styles.backButtonText, { color: colors.muted }]}>← Back to email</Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -348,26 +382,26 @@ export default function SignupAnimatedScreen() {
                 {!showOTPInput && (
                   <>
                     <View style={styles.dividerContainer}>
-                      <View style={styles.divider} />
-                      <Text style={styles.dividerText}>or continue with</Text>
-                      <View style={styles.divider} />
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      <Text style={[styles.dividerText, { color: colors.muted }]}>or continue with</Text>
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     </View>
 
-                    <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignup}>
+                    <TouchableOpacity style={[styles.googleButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleGoogleSignup}>
                       <Image
                         source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }}
                         style={styles.googleIcon}
                       />
-                      <Text style={styles.googleButtonText}>Google</Text>
+                      <Text style={[styles.googleButtonText, { color: colors.text }]}>Google</Text>
                     </TouchableOpacity>
                   </>
                 )}
 
-                <Text style={styles.footerText}>
+                <Text style={[styles.footerText, { color: colors.muted }]}>
                   By clicking continue, you agree to our{' '}
-                  <Text style={styles.footerLink}>Terms of Service</Text>
+                  <Text style={[styles.footerLink, { color: colors.primary }]}>Terms of Service</Text>
                   {' '}and{' '}
-                  <Text style={styles.footerLink}>Privacy Policy</Text>
+                  <Text style={[styles.footerLink, { color: colors.primary }]}>Privacy Policy</Text>
                 </Text>
 
                 {/* Development skip button - remove in production */}
@@ -376,7 +410,7 @@ export default function SignupAnimatedScreen() {
                     style={styles.skipButton}
                     onPress={() => router.replace('/(tabs)')}
                   >
-                    <Text style={styles.skipButtonText}>Skip Authentication (Dev Only)</Text>
+                    <Text style={[styles.skipButtonText, { color: colors.muted }]}>Skip Authentication (Dev Only)</Text>
                   </TouchableOpacity>
                 )}
               </Animated.View>
@@ -424,44 +458,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
-    color: '#000',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 24,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#ddd',
   },
   otpInput: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 20,
     marginBottom: 16,
     fontSize: 24,
     borderWidth: 2,
-    borderColor: '#4285F4',
     textAlign: 'center',
     letterSpacing: 8,
     fontWeight: 'bold',
   },
   primaryButton: {
-    backgroundColor: '#000',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 8,
   },
   primaryButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -476,7 +502,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   resendButtonText: {
-    color: '#4285F4',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -488,7 +513,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   backButtonText: {
-    color: '#666',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -501,22 +525,18 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#eee',
   },
   dividerText: {
-    color: '#999',
     paddingHorizontal: 10,
     fontSize: 14,
   },
   googleButton: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#eee',
     marginBottom: 4,
   },
   googleIcon: {
@@ -525,12 +545,10 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   googleButtonText: {
-    color: '#333',
     fontSize: 16,
     fontWeight: '500',
   },
   footerText: {
-    color: '#666',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
@@ -538,20 +556,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   footerLink: {
-    color: '#333',
     fontWeight: '500',
   },
   skipButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'transparent',
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
     marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
   skipButtonText: {
-    color: '#666',
     fontSize: 14,
     fontWeight: '500',
   },

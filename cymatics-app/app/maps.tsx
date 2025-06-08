@@ -69,29 +69,29 @@ const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({
 
             {project.client && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="business" size={20} color={colors.icon} />
+                <MaterialIcons name="business" size={20} color={colors.muted} />
                 <Text style={[styles.infoText, { color: colors.text }]}>{project.client.name}</Text>
               </View>
             )}
 
             {project.location && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="place" size={20} color="#666" />
-                <Text style={styles.infoText}>{project.location}</Text>
+                <MaterialIcons name="place" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>{project.location}</Text>
               </View>
             )}
 
             {project.address && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="location-on" size={20} color="#666" />
-                <Text style={styles.infoText}>{project.address}</Text>
+                <MaterialIcons name="location-on" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>{project.address}</Text>
               </View>
             )}
 
             {project.latitude && project.longitude && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="gps-fixed" size={20} color="#666" />
-                <Text style={styles.infoText}>
+                <MaterialIcons name="gps-fixed" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>
                   {MapsService.formatCoordinates(
                     parseFloat(project.latitude),
                     parseFloat(project.longitude)
@@ -102,15 +102,15 @@ const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({
 
             {project.status && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="info" size={20} color="#666" />
-                <Text style={styles.infoText}>Status: {project.status}</Text>
+                <MaterialIcons name="info" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>Status: {project.status}</Text>
               </View>
             )}
 
             {project.amount && project.amount > 0 && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="attach-money" size={20} color="#666" />
-                <Text style={styles.infoText}>
+                <MaterialIcons name="attach-money" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>
                   Amount: ₹{parseFloat(project.amount).toLocaleString()}
                 </Text>
               </View>
@@ -118,8 +118,8 @@ const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({
 
             {project.shootStartDate && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="event" size={20} color="#666" />
-                <Text style={styles.infoText}>
+                <MaterialIcons name="event" size={20} color={colors.muted} />
+                <Text style={[styles.infoText, { color: colors.text }]}>
                   Start: {new Date(project.shootStartDate).toLocaleDateString()}
                 </Text>
               </View>
@@ -127,15 +127,15 @@ const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({
           </View>
         </ScrollView>
 
-        <View style={styles.modalActions}>
-          <TouchableOpacity style={styles.actionButton} onPress={onGetDirections}>
-            <MaterialIcons name="directions" size={20} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Get Directions</Text>
+        <View style={[styles.modalActions, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          <TouchableOpacity style={[styles.actionButton, { borderColor: colors.primary }]} onPress={onGetDirections}>
+            <MaterialIcons name="directions" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Get Directions</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={onViewProject}>
-            <MaterialIcons name="visibility" size={20} color="#fff" />
-            <Text style={[styles.actionButtonText, styles.primaryButtonText]}>View Project</Text>
+          <TouchableOpacity style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onViewProject}>
+            <MaterialIcons name="visibility" size={20} color={colors.background} />
+            <Text style={[styles.actionButtonText, styles.primaryButtonText, { color: colors.background }]}>View Project</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -337,14 +337,14 @@ const MapsScreen: React.FC = () => {
         />
 
         <View style={styles.emptyContainer}>
-          <MaterialIcons name="location-off" size={64} color="#ccc" />
-          <Text style={styles.emptyTitle}>No Projects with Locations</Text>
-          <Text style={styles.emptyText}>
+          <MaterialIcons name="location-off" size={64} color={colors.muted} />
+          <Text style={[styles.emptyTitle, { color: colors.muted }]}>No Projects with Locations</Text>
+          <Text style={[styles.emptyText, { color: colors.placeholder }]}>
             Projects need to have valid coordinates to appear on the map.
             Add locations to your projects to see them here.
           </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
-            <Text style={styles.refreshButtonText}>Refresh</Text>
+          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: colors.primary }]} onPress={handleRefresh}>
+            <Text style={[styles.refreshButtonText, { color: colors.background }]}>Refresh</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -352,7 +352,7 @@ const MapsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
       <CustomHeader
         title="Project Map"
         showBackButton={true}
@@ -396,14 +396,14 @@ const MapsScreen: React.FC = () => {
       </View>
 
       {/* Stats */}
-      <View style={styles.statsContainer}>
+      <View style={[styles.statsContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{filteredProjects.length}</Text>
-          <Text style={styles.statLabel}>Projects</Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>{filteredProjects.length}</Text>
+          <Text style={[styles.statLabel, { color: colors.muted }]}>Projects</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{projects.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
+          <Text style={[styles.statNumber, { color: colors.primary }]}>{projects.length}</Text>
+          <Text style={[styles.statLabel, { color: colors.muted }]}>Total</Text>
         </View>
       </View>
 

@@ -9,13 +9,26 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { router } from 'expo-router';
-import DashboardService, { DashboardStats, TodaySchedule, UpcomingShoot, IncomeExpenseChart, ProjectDetailsChart, ExpenseBreakdownChart } from '../../src/services/DashboardService';
-import EnhancedCharts from '../../src/components/charts/EnhancedCharts';
+import DashboardService, {
+  DashboardStats,
+  TodaySchedule,
+  UpcomingShoot,
+  IncomeExpenseChart,
+  ProjectDetailsChart,
+  ExpenseBreakdownChart,
+  MonthlyIncomeExpenseChart,
+  MonthlyProjectChart,
+  ExpensePieChart,
+  MonthlyExpensesStackedChart,
+  CategoryExpensesChart,
+} from '../../src/services/DashboardService';
+import DjangoEquivalentCharts from '../../src/components/charts/DjangoEquivalentCharts';
 import ChartDataTransformer from '../../src/utils/chartDataTransformer';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -28,10 +41,19 @@ export default function DashboardScreen() {
   const [incomeExpenseChart, setIncomeExpenseChart] = useState<IncomeExpenseChart | null>(null);
   const [projectDetailsChart, setProjectDetailsChart] = useState<ProjectDetailsChart | null>(null);
   const [expenseBreakdownChart, setExpenseBreakdownChart] = useState<ExpenseBreakdownChart | null>(null);
+  // New Django-equivalent charts
+  const [monthlyIncomeExpenseChart, setMonthlyIncomeExpenseChart] = useState<MonthlyIncomeExpenseChart | null>(null);
+  const [monthlyProjectChart, setMonthlyProjectChart] = useState<MonthlyProjectChart | null>(null);
+  const [expensePieChart, setExpensePieChart] = useState<ExpensePieChart | null>(null);
+  const [monthlyExpensesStackedChart, setMonthlyExpensesStackedChart] = useState<MonthlyExpensesStackedChart | null>(null);
+  const [categoryExpensesChart, setCategoryExpensesChart] = useState<CategoryExpensesChart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartsLoading, setChartsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredTodaySchedule, setFilteredTodaySchedule] = useState<TodaySchedule[]>([]);
+  const [filteredUpcomingShoots, setFilteredUpcomingShoots] = useState<UpcomingShoot[]>([]);
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -53,9 +75,29 @@ export default function DashboardScreen() {
     router.push('/profile');
   };
 
-  const handleMessagePress = () => {
-    router.push('/chat');
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+
+    // Filter today's schedule
+    const filteredSchedule = todaySchedule.filter(schedule =>
+      schedule.title.toLowerCase().includes(query.toLowerCase()) ||
+      (schedule.client && schedule.client.toLowerCase().includes(query.toLowerCase())) ||
+      (schedule.projectCode && schedule.projectCode.toLowerCase().includes(query.toLowerCase())) ||
+      (schedule.location && schedule.location.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredTodaySchedule(filteredSchedule);
+
+    // Filter upcoming shoots
+    const filteredShoots = upcomingShoots.filter(shoot =>
+      (shoot.type && shoot.type.toLowerCase().includes(query.toLowerCase())) ||
+      (shoot.client?.company && shoot.client.company.toLowerCase().includes(query.toLowerCase())) ||
+      (shoot.company && shoot.company.toLowerCase().includes(query.toLowerCase())) ||
+      (shoot.code && shoot.code.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFilteredUpcomingShoots(filteredShoots);
   };
+
+
 
   // Load dashboard data
   const loadDashboardData = async () => {
@@ -78,6 +120,16 @@ export default function DashboardScreen() {
       setIncomeExpenseChart(data.incomeExpenseChart);
       setProjectDetailsChart(data.projectDetailsChart);
       setExpenseBreakdownChart(data.expenseBreakdownChart);
+      // Set new Django-equivalent charts
+      setMonthlyIncomeExpenseChart(data.monthlyIncomeExpenseChart);
+      setMonthlyProjectChart(data.monthlyProjectChart);
+      setExpensePieChart(data.expensePieChart);
+      setMonthlyExpensesStackedChart(data.monthlyExpensesStackedChart);
+      setCategoryExpensesChart(data.categoryExpensesChart);
+
+      // Initialize filtered data
+      setFilteredTodaySchedule(data.todaySchedule);
+      setFilteredUpcomingShoots(data.upcomingShoots);
 
       // Only set error if ALL data is missing (indicating connection issue)
       if (!data.stats && data.todaySchedule.length === 0 && data.upcomingShoots.length === 0 &&
@@ -162,9 +214,6 @@ export default function DashboardScreen() {
           <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard</Text>
         </View>
         <View style={styles.rightSection}>
-          <TouchableOpacity style={styles.messageButton} onPress={handleMessagePress}>
-            <IconSymbol name="message.fill" size={24} color={colors.text} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <IconSymbol name="person.circle.fill" size={32} color={colors.text} />
           </TouchableOpacity>
@@ -176,7 +225,19 @@ export default function DashboardScreen() {
         {/* Search Bar */}
         <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
-          <Text style={[styles.searchPlaceholder, { color: colors.muted }]}>Search</Text>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search projects, clients..."
+            placeholderTextColor={colors.muted}
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <IconSymbol name="xmark.circle.fill" size={20} color={colors.muted} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Status Navigation */}
@@ -279,34 +340,34 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {todaySchedule.length > 0 ? (
-            todaySchedule.slice(0, 1).map((schedule) => (
-              <View key={schedule.id} style={styles.shootCard}>
+          {(searchQuery ? filteredTodaySchedule : todaySchedule).length > 0 ? (
+            (searchQuery ? filteredTodaySchedule : todaySchedule).slice(0, 1).map((schedule) => (
+              <View key={schedule.id} style={[styles.shootCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.shootImage}>
-                  <IconSymbol name="camera.fill" size={40} color="#4285F4" />
+                  <IconSymbol name="camera.fill" size={40} color={colors.primary} />
                 </View>
                 <View style={styles.shootInfo}>
-                  <Text style={styles.shootTitle}>{schedule.title}</Text>
-                  <Text style={styles.shootCompany}>{schedule.client || 'Client TBD'}</Text>
-                  <Text style={styles.shootCode}>{schedule.projectCode || 'No project code'}</Text>
-                  <Text style={styles.shootTime}>
+                  <Text style={[styles.shootTitle, { color: colors.text }]}>{schedule.title}</Text>
+                  <Text style={[styles.shootCompany, { color: colors.muted }]}>{schedule.client || 'Client TBD'}</Text>
+                  <Text style={[styles.shootCode, { color: colors.muted }]}>{schedule.projectCode || 'No project code'}</Text>
+                  <Text style={[styles.shootTime, { color: colors.muted }]}>
                     {formatDateTime(schedule.startTime)}
                   </Text>
                   {schedule.location && (
-                    <Text style={styles.shootLocation}>📍 {schedule.location}</Text>
+                    <Text style={[styles.shootLocation, { color: colors.muted }]}>📍 {schedule.location}</Text>
                   )}
                 </View>
               </View>
             ))
           ) : (
-            <View style={styles.emptyStateCard}>
-              <IconSymbol name="calendar" size={40} color="#ccc" />
-              <Text style={styles.emptyStateText}>No shoots scheduled for today</Text>
+            <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <IconSymbol name="calendar" size={40} color={colors.muted} />
+              <Text style={[styles.emptyStateText, { color: colors.muted }]}>No shoots scheduled for today</Text>
               <TouchableOpacity
-                style={styles.addScheduleButton}
+                style={[styles.addScheduleButton, { backgroundColor: colors.primary }]}
                 onPress={() => router.push('/(tabs)/calendar')}
               >
-                <Text style={styles.addScheduleButtonText}>Add Schedule</Text>
+                <Text style={[styles.addScheduleButtonText, { color: colors.background }]}>Add Schedule</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -315,42 +376,42 @@ export default function DashboardScreen() {
         {/* Upcoming Shoots */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Shoots</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Upcoming Shoots</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/projects')}>
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>See all</Text>
             </TouchableOpacity>
           </View>
 
-          {upcomingShoots.length > 0 ? (
-            upcomingShoots.slice(0, 3).map((shoot) => {
+          {(searchQuery ? filteredUpcomingShoots : upcomingShoots).length > 0 ? (
+            (searchQuery ? filteredUpcomingShoots : upcomingShoots).slice(0, 3).map((shoot) => {
               const { date, time } = formatShootDate(shoot.shootStartDate);
 
               return (
-                <View key={shoot.id} style={styles.upcomingShoot}>
+                <View key={shoot.id} style={[styles.upcomingShoot, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.upcomingLeft}>
-                    <Text style={styles.upcomingTitle}>
+                    <Text style={[styles.upcomingTitle, { color: colors.text }]}>
                       {shoot.type || 'Photography'}
                     </Text>
-                    <Text style={styles.upcomingCompany}>
+                    <Text style={[styles.upcomingCompany, { color: colors.muted }]}>
                       {shoot.client?.company || shoot.company || 'Client'} ({shoot.code})
                     </Text>
                   </View>
                   <View style={styles.upcomingRight}>
-                    <Text style={styles.upcomingDate}>{date}</Text>
-                    <Text style={styles.upcomingTime}>{time}</Text>
+                    <Text style={[styles.upcomingDate, { color: colors.text }]}>{date}</Text>
+                    <Text style={[styles.upcomingTime, { color: colors.muted }]}>{time}</Text>
                   </View>
                 </View>
               );
             })
           ) : (
-            <View style={styles.emptyStateCard}>
-              <IconSymbol name="camera" size={40} color="#ccc" />
-              <Text style={styles.emptyStateText}>No upcoming shoots scheduled</Text>
+            <View style={[styles.emptyStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <IconSymbol name="camera" size={40} color={colors.muted} />
+              <Text style={[styles.emptyStateText, { color: colors.muted }]}>No upcoming shoots scheduled</Text>
               <TouchableOpacity
-                style={styles.addScheduleButton}
+                style={[styles.addScheduleButton, { backgroundColor: colors.primary }]}
                 onPress={() => router.push('/(tabs)/projects')}
               >
-                <Text style={styles.addScheduleButtonText}>Add Project</Text>
+                <Text style={[styles.addScheduleButtonText, { color: colors.background }]}>Add Project</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -358,26 +419,32 @@ export default function DashboardScreen() {
 
         {/* Enhanced Analytics Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Analytics</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Analytics</Text>
         </View>
 
-        {/* Enhanced Charts */}
+        {/* Charts */}
         {chartsLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4285F4" />
-            <Text style={styles.loadingText}>Loading charts...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.muted }]}>Loading charts...</Text>
           </View>
         ) : (
-          <EnhancedCharts
-            {...ChartDataTransformer.transformAllChartData(
+          <DjangoEquivalentCharts
+            monthlyIncomeExpenseChart={monthlyIncomeExpenseChart}
+            monthlyProjectChart={monthlyProjectChart}
+            expensePieChart={expensePieChart}
+            monthlyExpensesStackedChart={monthlyExpensesStackedChart}
+            categoryExpensesChart={categoryExpensesChart}
+            // Pass legacy chart data for project status chart
+            projectData={ChartDataTransformer.transformAllChartData(
               incomeExpenseChart,
               projectDetailsChart,
               expenseBreakdownChart
-            )}
+            ).projectData}
           />
         )}
 
-        {/* Bottom padding for tab bar */}
+        {/* Bottom padding for tab bar clearance */}
         <View style={styles.bottomPadding} />
       </ScrollView>
 
@@ -390,7 +457,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -399,9 +465,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   leftSection: {
     flexDirection: 'row',
@@ -417,39 +481,30 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#000',
-  },
-  messageButton: {
-    padding: 5,
-    marginRight: 15,
   },
   profileButton: {
     padding: 5,
   },
   fixedContent: {
-    backgroundColor: '#fff',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
     marginHorizontal: 20,
     marginTop: 15,
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     marginLeft: 10,
-    color: '#999',
     fontSize: 16,
   },
   statusNav: {
@@ -467,20 +522,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 15,
-    backgroundColor: '#fcfcfc',
     marginHorizontal: 2,
     borderWidth: 1,
-    borderColor: '#f5f5f5',
   },
   activeStatusTab: {
-    backgroundColor: '#fff',
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
     elevation: 2,
   },
   statusText: {
     marginLeft: 5,
     fontSize: 14,
-    color: '#000',
     fontWeight: '500',
   },
   horizontalScrollView: {
@@ -528,27 +579,22 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: 160,
-    backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     marginVertical: 5,
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
     marginBottom: 5,
   },
   statChange: {
     fontSize: 12,
-    color: '#4CAF50',
   },
   chartContainer: {
     backgroundColor: '#fff',
@@ -812,19 +858,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
   },
   seeAllText: {
     fontSize: 14,
-    color: '#4285F4',
   },
   shootCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   shootImage: {
     width: 60,
@@ -841,51 +883,41 @@ const styles = StyleSheet.create({
   shootTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 4,
   },
   shootCompany: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 2,
   },
   shootCode: {
     fontSize: 12,
-    color: '#999',
     marginBottom: 2,
   },
   shootTime: {
     fontSize: 12,
-    color: '#999',
   },
   shootLocation: {
     fontSize: 12,
-    color: '#4285F4',
     marginTop: 2,
   },
   emptyStateCard: {
-    backgroundColor: '#fff',
     padding: 30,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
     alignItems: 'center',
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#999',
     marginTop: 10,
     marginBottom: 15,
     textAlign: 'center',
   },
   addScheduleButton: {
-    backgroundColor: '#4285F4',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addScheduleButtonText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -893,12 +925,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   upcomingLeft: {
     flex: 1,
@@ -909,22 +939,18 @@ const styles = StyleSheet.create({
   upcomingTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#000',
     marginBottom: 2,
   },
   upcomingCompany: {
     fontSize: 12,
-    color: '#666',
   },
   upcomingDate: {
     fontSize: 12,
-    color: '#999',
     textAlign: 'right',
     marginBottom: 2,
   },
   upcomingTime: {
     fontSize: 12,
-    color: '#999',
     textAlign: 'right',
   },
   bottomPadding: {
@@ -943,5 +969,95 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  sectionContainer: {
+    marginHorizontal: 20,
+    marginTop: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  seeAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  shootCard: {
+    flexDirection: 'row',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  shootImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  shootInfo: {
+    flex: 1,
+  },
+  shootTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  shootCompany: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  shootCode: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  shootTime: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  shootLocation: {
+    fontSize: 12,
+  },
+  emptyStateCard: {
+    padding: 30,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  addScheduleButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  addScheduleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  upcomingShoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  bottomPadding: {
+    height: 100, // Extra padding for tab bar and safe area
   },
 });

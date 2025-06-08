@@ -213,6 +213,8 @@ export const projectSchemas = {
     type: Joi.string().optional(),
     status: Joi.string().optional(),
     company: Joi.string().optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().optional(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(10000).default(10),
   }),

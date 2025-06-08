@@ -21,20 +21,23 @@ function AppContent() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="status" options={{ headerShown: false }} />
         <Stack.Screen name="clients" options={{ headerShown: false }} />
+        <Stack.Screen name="assets" options={{ headerShown: false }} />
+        <Stack.Screen name="entertainment" options={{ headerShown: false }} />
         <Stack.Screen name="pending-payments" options={{ headerShown: false }} />
         <Stack.Screen name="budget" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="chat" options={{ headerShown: false }} />
         <Stack.Screen name="create-project" options={{ headerShown: false }} />
         <Stack.Screen name="create-income" options={{ headerShown: false }} />
         <Stack.Screen name="create-expense" options={{ headerShown: false }} />
         <Stack.Screen name="create-client" options={{ headerShown: false }} />
+        <Stack.Screen name="create-payment" options={{ headerShown: false }} />
         <Stack.Screen name="edit-client" options={{ headerShown: false }} />
         <Stack.Screen name="edit-project" options={{ headerShown: false }} />
         <Stack.Screen name="edit-income" options={{ headerShown: false }} />
         <Stack.Screen name="edit-expense" options={{ headerShown: false }} />
         <Stack.Screen name="maps" options={{ headerShown: false }} />
         <Stack.Screen name="project-details" options={{ headerShown: false }} />
+        <Stack.Screen name="client-projects" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

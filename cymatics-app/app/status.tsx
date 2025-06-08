@@ -103,29 +103,29 @@ export default function StatusScreen() {
   };
 
   const renderStatusItem = ({ item }: { item: Project }) => (
-    <View style={styles.statusCard}>
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+    <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+      <View style={[styles.avatarContainer, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.avatarText, { color: colors.text }]}>{item.name.charAt(0).toUpperCase()}</Text>
       </View>
       <View style={styles.statusInfo}>
-        <Text style={styles.clientName}>{item.name}</Text>
-        <Text style={styles.companyName}>{item.company}</Text>
-        <Text style={styles.pendingAmount}>
+        <Text style={[styles.clientName, { color: colors.text }]}>{item.name}</Text>
+        <Text style={[styles.companyName, { color: colors.muted }]}>{item.company}</Text>
+        <Text style={[styles.pendingAmount, { color: colors.warning || '#FF9800' }]}>
           Pending: ${item.pendingAmount?.toLocaleString() || '0'}
         </Text>
       </View>
       <View style={styles.amountContainer}>
-        <Text style={styles.totalAmount}>${item.amount.toLocaleString()}</Text>
-        <Text style={styles.statusBadge}>{item.status.toUpperCase()}</Text>
+        <Text style={[styles.totalAmount, { color: colors.text }]}>${item.amount.toLocaleString()}</Text>
+        <Text style={[styles.statusBadge, { color: colors.muted, backgroundColor: colors.surface }]}>{item.status.toUpperCase()}</Text>
       </View>
     </View>
   );
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons name="folder-open" size={64} color="#ccc" />
-      <Text style={styles.emptyTitle}>No {activeTab} projects</Text>
-      <Text style={styles.emptySubtitle}>
+      <MaterialIcons name="folder-open" size={64} color={colors.muted} />
+      <Text style={[styles.emptyTitle, { color: colors.muted }]}>No {activeTab} projects</Text>
+      <Text style={[styles.emptySubtitle, { color: colors.placeholder }]}>
         {activeTab === 'ongoing' && 'No projects are currently in progress.'}
         {activeTab === 'pending' && 'No projects are pending approval.'}
         {activeTab === 'completed' && 'No projects have been completed yet.'}
@@ -137,8 +137,8 @@ export default function StatusScreen() {
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Loading {activeTab} projects...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.muted }]}>Loading {activeTab} projects...</Text>
         </View>
       );
     }
@@ -146,11 +146,11 @@ export default function StatusScreen() {
     if (error) {
       return (
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={64} color="#ff6b6b" />
-          <Text style={styles.errorTitle}>Error Loading Projects</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadProjects}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+          <MaterialIcons name="error-outline" size={64} color={colors.error || '#ff6b6b'} />
+          <Text style={[styles.errorTitle, { color: colors.error || '#ff6b6b' }]}>Error Loading Projects</Text>
+          <Text style={[styles.errorMessage, { color: colors.muted }]}>{error}</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={loadProjects}>
+            <Text style={[styles.retryButtonText, { color: colors.background }]}>Try Again</Text>
           </TouchableOpacity>
         </View>
       );
@@ -172,8 +172,8 @@ export default function StatusScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#000']}
-            tintColor="#000"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       />
@@ -200,26 +200,26 @@ export default function StatusScreen() {
       {/* Filter Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'ongoing' && styles.activeTab]}
+          style={[styles.tab, { backgroundColor: colors.surface }, activeTab === 'ongoing' && { backgroundColor: colors.primary }]}
           onPress={() => handleTabChange('ongoing')}
         >
-          <Text style={[styles.tabText, activeTab === 'ongoing' && styles.activeTabText]}>
+          <Text style={[styles.tabText, { color: colors.muted }, activeTab === 'ongoing' && { color: colors.background }]}>
             Ongoing
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
+          style={[styles.tab, { backgroundColor: colors.surface }, activeTab === 'pending' && { backgroundColor: colors.primary }]}
           onPress={() => handleTabChange('pending')}
         >
-          <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>
+          <Text style={[styles.tabText, { color: colors.muted }, activeTab === 'pending' && { color: colors.background }]}>
             Pending
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
+          style={[styles.tab, { backgroundColor: colors.surface }, activeTab === 'completed' && { backgroundColor: colors.primary }]}
           onPress={() => handleTabChange('completed')}
         >
-          <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
+          <Text style={[styles.tabText, { color: colors.muted }, activeTab === 'completed' && { color: colors.background }]}>
             Completed
           </Text>
         </TouchableOpacity>
@@ -237,7 +237,6 @@ export default function StatusScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -245,7 +244,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 15,
-    backgroundColor: '#fff',
   },
   leftSection: {
     flexDirection: 'row',
@@ -258,7 +256,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -270,18 +267,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
   },
   activeTab: {
-    backgroundColor: '#000',
+    // Colors handled dynamically
   },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
   },
   activeTabText: {
-    color: '#fff',
+    // Colors handled dynamically
   },
   statusList: {
     flex: 1,
@@ -293,7 +288,6 @@ const styles = StyleSheet.create({
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -302,7 +296,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#e0e0e0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -310,7 +303,6 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
   },
   statusInfo: {
     flex: 1,
@@ -318,17 +310,14 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 2,
   },
   companyName: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
   pendingAmount: {
     fontSize: 14,
-    color: '#FF9800',
     fontWeight: '500',
   },
   amountContainer: {
@@ -337,14 +326,11 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 4,
   },
   statusBadge: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
-    backgroundColor: '#e0e0e0',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,

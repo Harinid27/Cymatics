@@ -87,6 +87,71 @@ class DashboardController {
       next(error);
     }
   }
+
+  /**
+   * Get monthly income vs expense chart data (Django equivalent)
+   */
+  async getMonthlyIncomeExpenseChart(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chartData = await dashboardService.getMonthlyIncomeExpenseChart();
+
+      sendSuccessResponse(res, chartData, 'Monthly income vs expense chart data retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get monthly project count chart data (Django equivalent)
+   */
+  async getMonthlyProjectChart(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chartData = await dashboardService.getMonthlyProjectChart();
+
+      sendSuccessResponse(res, chartData, 'Monthly project chart data retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get expense pie chart data (Django equivalent)
+   */
+  async getExpensePieChart(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chartData = await dashboardService.getExpensePieChart();
+
+      sendSuccessResponse(res, chartData, 'Expense pie chart data retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get monthly expenses stacked bar chart data (Django equivalent)
+   */
+  async getMonthlyExpensesStackedChart(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chartData = await dashboardService.getMonthlyExpensesStackedChart();
+
+      sendSuccessResponse(res, chartData, 'Monthly expenses stacked chart data retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get category expenses bar chart data (Django equivalent)
+   */
+  async getCategoryExpensesChart(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chartData = await dashboardService.getCategoryExpensesChart();
+
+      sendSuccessResponse(res, chartData, 'Category expenses chart data retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const dashboardController = new DashboardController();

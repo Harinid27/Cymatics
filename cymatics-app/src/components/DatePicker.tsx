@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DatePickerProps {
   value: string; // Date in YYYY-MM-DD format
@@ -28,6 +29,7 @@ export default function DatePicker({
   style,
   disabled = false,
 }: DatePickerProps) {
+  const { colors } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
 
   // Convert YYYY-MM-DD string to Date object
@@ -54,7 +56,7 @@ export default function DatePicker({
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
-    
+
     if (selectedDate) {
       const dateString = getStringFromDate(selectedDate);
       onDateChange(dateString);
@@ -69,12 +71,13 @@ export default function DatePicker({
 
   return (
     <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      
+      {label && <Text style={[styles.label, { color: colors.text }]}>{label}</Text>}
+
       <TouchableOpacity
         style={[
           styles.dateButton,
-          error && styles.dateButtonError,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          error && { borderColor: colors.error, backgroundColor: colors.errorBackground || colors.surface },
           disabled && styles.dateButtonDisabled,
         ]}
         onPress={openDatePicker}
@@ -83,8 +86,9 @@ export default function DatePicker({
         <Text
           style={[
             styles.dateText,
-            !value && styles.placeholderText,
-            disabled && styles.disabledText,
+            { color: colors.text },
+            !value && { color: colors.placeholder },
+            disabled && { color: colors.muted },
           ]}
         >
           {value ? formatDisplayDate(value) : placeholder}
@@ -92,11 +96,11 @@ export default function DatePicker({
         <MaterialIcons
           name="calendar-today"
           size={20}
-          color={disabled ? '#ccc' : '#666'}
+          color={disabled ? colors.muted : colors.muted}
         />
       </TouchableOpacity>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>}
 
       {showPicker && (
         <DateTimePicker
@@ -119,42 +123,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 8,
   },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: 'transparent',
   },
   dateButtonError: {
-    borderColor: '#ff6b6b',
-    backgroundColor: '#fff5f5',
+    // Colors handled dynamically
   },
   dateButtonDisabled: {
-    backgroundColor: '#f0f0f0',
     opacity: 0.6,
   },
   dateText: {
     fontSize: 16,
-    color: '#000',
     flex: 1,
   },
   placeholderText: {
-    color: '#999',
+    // Colors handled dynamically
   },
   disabledText: {
-    color: '#ccc',
+    // Colors handled dynamically
   },
   errorText: {
     fontSize: 12,
-    color: '#ff6b6b',
     marginTop: 4,
     marginLeft: 4,
   },

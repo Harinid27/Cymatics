@@ -15,6 +15,7 @@ import {
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import MapsService, { Coordinates } from '../../services/MapsService';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MapMarker {
   id: string;
@@ -55,6 +56,7 @@ const CustomMapView: React.FC<MapViewProps> = ({
   rotateEnabled = true,
   pitchEnabled = true,
 }) => {
+  const { colors } = useTheme();
   const mapRef = useRef<MapView>(null);
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
@@ -176,14 +178,14 @@ const CustomMapView: React.FC<MapViewProps> = ({
       {/* Location Button */}
       {showLocationButton && (
         <TouchableOpacity
-          style={styles.locationButton}
+          style={[styles.locationButton, { backgroundColor: colors.background }]}
           onPress={centerOnUserLocation}
           disabled={isLoadingLocation}
         >
           {isLoadingLocation ? (
-            <ActivityIndicator size="small" color="#007AFF" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <MaterialIcons name="my-location" size={24} color="#007AFF" />
+            <MaterialIcons name="my-location" size={24} color={colors.primary} />
           )}
         </TouchableOpacity>
       )}
@@ -191,17 +193,21 @@ const CustomMapView: React.FC<MapViewProps> = ({
       {/* Fit to Markers Button */}
       {markers.length > 1 && (
         <TouchableOpacity
-          style={[styles.locationButton, { bottom: 80 }]}
+          style={[styles.locationButton, { backgroundColor: colors.background, bottom: 80 }]}
           onPress={fitToMarkers}
         >
-          <MaterialIcons name="center-focus-strong" size={24} color="#007AFF" />
+          <MaterialIcons name="center-focus-strong" size={24} color={colors.primary} />
         </TouchableOpacity>
       )}
 
       {/* Current Location Indicator */}
       {currentLocation && (
-        <View style={styles.locationInfo}>
-          <Text style={styles.locationText}>
+        <View style={[styles.locationInfo, {
+          backgroundColor: colors.background === '#000000'
+            ? 'rgba(0, 0, 0, 0.9)'
+            : 'rgba(255, 255, 255, 0.9)'
+        }]}>
+          <Text style={[styles.locationText, { color: colors.text }]}>
             {MapsService.formatCoordinates(currentLocation.latitude, currentLocation.longitude)}
           </Text>
         </View>
@@ -221,7 +227,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: 'white',
     borderRadius: 25,
     width: 50,
     height: 50,
@@ -241,14 +246,12 @@ const styles = StyleSheet.create({
     top: 10,
     left: 10,
     right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
   },
   locationText: {
     fontSize: 12,
-    color: '#333',
     fontWeight: '500',
   },
 });

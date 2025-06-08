@@ -166,13 +166,13 @@ export default function BudgetScreen() {
           {/* Y-axis */}
           <View style={styles.yAxisContainer}>
             <View style={styles.yAxis}>
-              <Text style={styles.yAxisLabel}>{maxValue.toLocaleString()}</Text>
-              <Text style={styles.yAxisLabel}>{(maxValue * 0.8).toLocaleString()}</Text>
-              <Text style={styles.yAxisLabel}>{(maxValue * 0.6).toLocaleString()}</Text>
-              <Text style={styles.yAxisLabel}>{(maxValue * 0.4).toLocaleString()}</Text>
-              <Text style={styles.yAxisLabel}>{(maxValue * 0.2).toLocaleString()}</Text>
+              <Text style={[styles.yAxisLabel, { color: colors.muted }]}>{maxValue.toLocaleString()}</Text>
+              <Text style={[styles.yAxisLabel, { color: colors.muted }]}>{(maxValue * 0.8).toLocaleString()}</Text>
+              <Text style={[styles.yAxisLabel, { color: colors.muted }]}>{(maxValue * 0.6).toLocaleString()}</Text>
+              <Text style={[styles.yAxisLabel, { color: colors.muted }]}>{(maxValue * 0.4).toLocaleString()}</Text>
+              <Text style={[styles.yAxisLabel, { color: colors.muted }]}>{(maxValue * 0.2).toLocaleString()}</Text>
             </View>
-            <View style={styles.yAxisLine} />
+            <View style={[styles.yAxisLine, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Chart area */}
@@ -194,6 +194,7 @@ export default function BudgetScreen() {
                     style={[
                       styles.chartLine,
                       {
+                        backgroundColor: colors.primary,
                         position: 'absolute',
                         left: point.x,
                         top: point.y,
@@ -208,12 +209,12 @@ export default function BudgetScreen() {
             </View>
 
             {/* X-axis line */}
-            <View style={styles.xAxisLine} />
+            <View style={[styles.xAxisLine, { backgroundColor: colors.border }]} />
 
             {/* X-axis labels */}
             <View style={styles.xAxis}>
               {chartData.map((point, index) => (
-                <Text key={point?.month || index} style={styles.xAxisLabel}>
+                <Text key={point?.month || index} style={[styles.xAxisLabel, { color: colors.muted }]}>
                   {point?.month || ''}
                 </Text>
               ))}
@@ -246,8 +247,8 @@ export default function BudgetScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#000']}
-            tintColor="#000"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
@@ -269,8 +270,8 @@ export default function BudgetScreen() {
           <>
             {/* Balance Cards */}
             <View style={styles.balanceCards}>
-              <View style={[styles.currentBalanceCard, { backgroundColor: colors.text }]}>
-                <Text style={[styles.cardLabel, { color: colors.muted }]}>Current Balance</Text>
+              <View style={[styles.currentBalanceCard, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardLabel, { color: colors.background }]}>Current Balance</Text>
                 <Text style={[styles.currentBalanceAmount, { color: colors.background }]}>
                   ${budgetOverview?.currentBalance?.toLocaleString() || '0'}
                 </Text>
@@ -288,7 +289,7 @@ export default function BudgetScreen() {
             {renderSimpleChart()}
 
             {/* Budget Split Up */}
-            <View style={styles.budgetSplitContainer}>
+            <View style={[styles.budgetSplitContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Budget Split Up</Text>
               {budgetCategories && budgetCategories.length > 0 ? (
                 <View style={styles.budgetSplitGrid}>
@@ -328,7 +329,6 @@ export default function BudgetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   header: {
     flexDirection: 'row',
@@ -336,7 +336,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 15,
-    backgroundColor: '#fff',
   },
   backButton: {
     padding: 5,
@@ -345,7 +344,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   scrollView: {
     flex: 1,
@@ -358,51 +356,41 @@ const styles = StyleSheet.create({
   },
   currentBalanceCard: {
     flex: 1,
-    backgroundColor: '#000',
     borderRadius: 15,
     padding: 20,
   },
   receivedAmountCard: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   cardLabel: {
     fontSize: 14,
-    color: '#999',
     marginBottom: 10,
   },
   currentBalanceAmount: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
   },
   receivedAmount: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 5,
   },
   thisMonth: {
     fontSize: 12,
-    color: '#999',
   },
   chartContainer: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 15,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   chartTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 10,
   },
   chartLegend: {
@@ -421,7 +409,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: '#999',
     fontWeight: '500',
   },
   chart: {
@@ -443,13 +430,11 @@ const styles = StyleSheet.create({
   },
   yAxisLine: {
     width: 1,
-    backgroundColor: '#ddd',
     height: 120,
     marginTop: 10,
   },
   yAxisLabel: {
     fontSize: 9,
-    color: '#999',
     textAlign: 'right',
   },
   chartArea: {
@@ -464,11 +449,9 @@ const styles = StyleSheet.create({
   },
   chartLine: {
     height: 2,
-    backgroundColor: '#00BCD4',
   },
   xAxisLine: {
     height: 1,
-    backgroundColor: '#ddd',
     marginTop: 0,
     width: 220,
   },
@@ -480,31 +463,26 @@ const styles = StyleSheet.create({
   },
   xAxisLabel: {
     fontSize: 10,
-    color: '#999',
     textAlign: 'center',
     width: 35,
   },
   budgetSplitContainer: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 15,
     padding: 15,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginTop: 8,
     marginBottom: 15,
   },
   balanceDetailsTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 15,
   },
   budgetSplitGrid: {
@@ -521,7 +499,6 @@ const styles = StyleSheet.create({
   budgetSplitName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 8,
   },
   budgetSplitAmount: {
@@ -538,17 +515,14 @@ const styles = StyleSheet.create({
   investmentTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 15,
   },
   investmentCard: {
-    backgroundColor: '#fff',
     borderRadius: 15,
     padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   investmentColumn: {
     flex: 1,
@@ -556,14 +530,12 @@ const styles = StyleSheet.create({
   },
   investmentLabel: {
     fontSize: 16,
-    color: '#000',
     marginBottom: 12,
     fontWeight: '600',
   },
   investmentValue: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000',
   },
   bottomPadding: {
     height: 50,
@@ -577,7 +549,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   errorContainer: {
     flex: 1,
@@ -589,24 +560,20 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ff6b6b',
     marginTop: 10,
     marginBottom: 5,
   },
   errorMessage: {
     fontSize: 14,
-    color: '#666',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#000',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -616,7 +583,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
     textAlign: 'center',
   },
   emptyChartContainer: {
@@ -625,7 +591,6 @@ const styles = StyleSheet.create({
   },
   emptyChartText: {
     fontSize: 14,
-    color: '#999',
     marginTop: 10,
   },
 });

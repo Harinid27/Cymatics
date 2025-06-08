@@ -20,7 +20,15 @@ export interface CreateProjectData {
   outFor?: string;
   outClient?: string;
   outsourcingPaid?: boolean;
+  onedriveLink?: string;
   clientId: number;
+}
+
+export enum ProjectStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  ON_HOLD = 'ON_HOLD'
 }
 
 export interface UpdateProjectData {
@@ -39,6 +47,7 @@ export interface UpdateProjectData {
   outFor?: string;
   outClient?: string;
   outsourcingPaid?: boolean;
+  onedriveLink?: string;
   clientId?: number;
 }
 
@@ -68,6 +77,7 @@ export interface ProjectWithDetails {
   outFor: string | null;
   outClient: string | null;
   outsourcingPaid: boolean;
+  onedriveLink: string | null;
   clientId: number;
   createdAt: Date;
   updatedAt: Date;
@@ -101,6 +111,8 @@ export interface ProjectQueryOptions {
   type?: string;
   status?: string;
   company?: string;
+  startDate?: Date | undefined;
+  endDate?: Date | undefined;
   page?: number;
   limit?: number;
 }
@@ -232,6 +244,14 @@ class ProjectService {
       // Update financial calculations
       await this.updateProjectFinances(updatedProject.id);
 
+      // Automatically create pending income entry if project has amount
+      if (updatedProject.amount > 0) {
+        await this.createPendingIncomeForProject(updatedProject);
+      }
+
+      // Update project status based on dates
+      await this.updateProjectStatusBasedOnDates(updatedProject.id);
+
       // Get updated project with calculations
       const finalProject = await this.getProjectById(updatedProject.id);
 
@@ -257,7 +277,7 @@ class ProjectService {
     };
   }> {
     try {
-      const { search = '', type, status, company, page = 1, limit = 10 } = options;
+      const { search = '', type, status, company, startDate, endDate, page = 1, limit = 10 } = options;
       const skip = (page - 1) * limit;
 
       // Build where clause
@@ -293,6 +313,33 @@ class ProjectService {
       if (company) {
         const companyList = company.split(',').map(c => c.trim());
         where.company = { in: companyList };
+      }
+
+      // Filter by date range (for calendar events)
+      if (startDate || endDate) {
+        where.OR = [
+          // Projects that start within the range
+          {
+            shootStartDate: {
+              ...(startDate && { gte: startDate }),
+              ...(endDate && { lte: endDate }),
+            },
+          },
+          // Projects that end within the range
+          {
+            shootEndDate: {
+              ...(startDate && { gte: startDate }),
+              ...(endDate && { lte: endDate }),
+            },
+          },
+          // Projects that span the entire range
+          {
+            AND: [
+              ...(startDate ? [{ shootStartDate: { lte: startDate } }] : []),
+              ...(endDate ? [{ shootEndDate: { gte: endDate } }] : []),
+            ],
+          },
+        ];
       }
 
       // Get total count for pagination
@@ -549,6 +596,16 @@ class ProjectService {
       // Update financial calculations
       await this.updateProjectFinances(id);
 
+      // Handle status changes for income automation
+      if (data.status && data.status.toUpperCase() === 'COMPLETED') {
+        await this.convertPendingToActualIncome(id);
+      }
+
+      // Update project status based on dates (unless manually overridden)
+      if (!data.status) {
+        await this.updateProjectStatusBasedOnDates(id);
+      }
+
       // Get updated project with calculations
       const finalProject = await this.getProjectById(id);
 
@@ -604,6 +661,283 @@ class ProjectService {
   }
 
 
+
+  /**
+   * Create pending income for a project
+   */
+  private async createPendingIncomeForProject(project: any): Promise<void> {
+    try {
+      // Check if pending income already exists for this project
+      const existingPendingIncome = await prisma.income.findFirst({
+        where: {
+          projectId: project.id,
+          description: {
+            contains: 'Project Payment',
+            mode: 'insensitive',
+          },
+        },
+      });
+
+      if (!existingPendingIncome) {
+        await prisma.income.create({
+          data: {
+            amount: project.amount,
+            description: `Project Payment - ${project.name || project.code}`,
+            date: project.shootEndDate || new Date(),
+            projectIncome: true,
+            projectId: project.id,
+          },
+        });
+
+        logger.info(`Pending income created for project: ${project.code}`);
+      }
+    } catch (error) {
+      logger.error('Error creating pending income for project:', error);
+      // Don't throw error to avoid breaking project creation
+    }
+  }
+
+  /**
+   * Convert pending income to actual income when project is completed
+   */
+  async convertPendingToActualIncome(projectId: number): Promise<void> {
+    try {
+      const project = await this.getProjectById(projectId);
+
+      if (project.status?.toUpperCase() === 'COMPLETED') {
+        // Find pending income for this project
+        const pendingIncome = await prisma.income.findFirst({
+          where: {
+            projectId: projectId,
+            description: {
+              contains: 'Project Payment',
+              mode: 'insensitive',
+            },
+          },
+        });
+
+        if (pendingIncome) {
+          // Update the income description to mark as received
+          await prisma.income.update({
+            where: { id: pendingIncome.id },
+            data: {
+              description: `Project Payment Received - ${project.name || project.code}`,
+              date: new Date(), // Update to current date when marked as received
+            },
+          });
+
+          logger.info(`Converted pending income to actual for project: ${project.code}`);
+        }
+      }
+    } catch (error) {
+      logger.error('Error converting pending to actual income:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update project status based on dates (automatic progression)
+   */
+  async updateProjectStatusBasedOnDates(projectId: number): Promise<void> {
+    try {
+      const project = await this.getProjectById(projectId);
+      const currentDate = new Date();
+      const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+      let newStatus = project.status;
+
+      // Don't auto-update if status is manually set to ON_HOLD
+      if (project.status === ProjectStatus.ON_HOLD) {
+        return;
+      }
+
+      if (project.shootStartDate && project.shootEndDate) {
+        const startDate = new Date(project.shootStartDate);
+        const endDate = new Date(project.shootEndDate);
+        const projectStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+        const projectEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+        if (today < projectStart) {
+          newStatus = ProjectStatus.NOT_STARTED;
+        } else if (today >= projectStart && today <= projectEnd) {
+          newStatus = ProjectStatus.IN_PROGRESS;
+        } else if (today > projectEnd) {
+          newStatus = ProjectStatus.COMPLETED;
+        }
+      } else if (project.shootStartDate) {
+        const startDate = new Date(project.shootStartDate);
+        const projectStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+
+        if (today >= projectStart) {
+          newStatus = ProjectStatus.IN_PROGRESS;
+        } else {
+          newStatus = ProjectStatus.NOT_STARTED;
+        }
+      }
+
+      // Update status if it changed
+      if (newStatus !== project.status) {
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { status: newStatus },
+        });
+
+        // Convert pending income if completed
+        if (newStatus === ProjectStatus.COMPLETED) {
+          await this.convertPendingToActualIncome(projectId);
+        }
+
+        logger.info(`Auto-updated project status: ${project.code} -> ${newStatus}`);
+      }
+    } catch (error) {
+      logger.error('Error updating project status based on dates:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Batch update all project statuses based on dates
+   */
+  async batchUpdateProjectStatuses(): Promise<void> {
+    try {
+      const projects = await prisma.project.findMany({
+        where: {
+          status: {
+            not: ProjectStatus.ON_HOLD, // Don't auto-update projects on hold
+          },
+        },
+        select: { id: true },
+      });
+
+      for (const project of projects) {
+        await this.updateProjectStatusBasedOnDates(project.id);
+      }
+
+      logger.info(`Batch updated ${projects.length} project statuses`);
+    } catch (error) {
+      logger.error('Error in batch update project statuses:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate project budget and profitability
+   */
+  async calculateProjectBudget(projectId: number): Promise<{
+    totalBudget: number;
+    totalExpenses: number;
+    totalIncome: number;
+    projectedProfit: number;
+    actualProfit: number;
+    budgetUtilization: number;
+    remainingBudget: number;
+  }> {
+    try {
+      const project = await this.getProjectById(projectId);
+
+      // Get all expenses for this project
+      const expenses = await prisma.expense.findMany({
+        where: { projectId: projectId },
+        select: { amount: true },
+      });
+
+      // Get all income for this project
+      const incomes = await prisma.income.findMany({
+        where: { projectId: projectId },
+        select: { amount: true },
+      });
+
+      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+      const totalBudget = project.amount; // Project amount is the budget
+      const projectedProfit = totalBudget - project.outsourcingAmt - totalExpenses;
+      const actualProfit = totalIncome - project.outsourcingAmt - totalExpenses;
+      const budgetUtilization = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
+      const remainingBudget = totalBudget - totalExpenses;
+
+      return {
+        totalBudget,
+        totalExpenses,
+        totalIncome,
+        projectedProfit,
+        actualProfit,
+        budgetUtilization,
+        remainingBudget,
+      };
+    } catch (error) {
+      logger.error('Error calculating project budget:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get project profitability analysis
+   */
+  async getProjectProfitabilityAnalysis(): Promise<{
+    totalProjects: number;
+    totalRevenue: number;
+    totalExpenses: number;
+    totalProfit: number;
+    averageProfitMargin: number;
+    mostProfitableProjects: Array<{
+      id: number;
+      code: string;
+      name: string;
+      profit: number;
+      profitMargin: number;
+    }>;
+  }> {
+    try {
+      const projects = await prisma.project.findMany({
+        include: {
+          incomes: { select: { amount: true } },
+          expenses: { select: { amount: true } },
+        },
+      });
+
+      let totalRevenue = 0;
+      let totalExpenses = 0;
+      const projectProfitability = [];
+
+      for (const project of projects) {
+        const projectRevenue = project.incomes.reduce((sum, income) => sum + income.amount, 0);
+        const projectExpenses = project.expenses.reduce((sum, expense) => sum + expense.amount, 0) + project.outsourcingAmt;
+        const projectProfit = projectRevenue - projectExpenses;
+        const profitMargin = projectRevenue > 0 ? (projectProfit / projectRevenue) * 100 : 0;
+
+        totalRevenue += projectRevenue;
+        totalExpenses += projectExpenses;
+
+        projectProfitability.push({
+          id: project.id,
+          code: project.code,
+          name: project.name || 'Unnamed Project',
+          profit: projectProfit,
+          profitMargin,
+        });
+      }
+
+      const totalProfit = totalRevenue - totalExpenses;
+      const averageProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+      // Sort by profit and get top 5
+      const mostProfitableProjects = projectProfitability
+        .sort((a, b) => b.profit - a.profit)
+        .slice(0, 5);
+
+      return {
+        totalProjects: projects.length,
+        totalRevenue,
+        totalExpenses,
+        totalProfit,
+        averageProfitMargin,
+        mostProfitableProjects,
+      };
+    } catch (error) {
+      logger.error('Error getting project profitability analysis:', error);
+      throw error;
+    }
+  }
 
   /**
    * Get project codes for dropdown

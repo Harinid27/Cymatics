@@ -36,6 +36,7 @@ interface FormData {
   outFor: string;
   outClient: string;
   outsourcingPaid: boolean;
+  onedriveLink: string;
   clientId: number;
 }
 
@@ -62,6 +63,7 @@ export default function EditProjectScreen() {
     outFor: '',
     outClient: '',
     outsourcingPaid: false,
+    onedriveLink: '',
     clientId: 0,
   });
 
@@ -105,6 +107,7 @@ export default function EditProjectScreen() {
           outFor: project.outFor || '',
           outClient: project.outClient || '',
           outsourcingPaid: project.outsourcingPaid || false,
+          onedriveLink: project.onedriveLink || '',
           clientId: project.clientId || 0,
         });
       } else {
@@ -266,81 +269,98 @@ export default function EditProjectScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Basic Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Project Name *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Project Name *</Text>
             <TextInput
-              style={[styles.textInput, errors.name && styles.inputError]}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+                errors.name && styles.inputError
+              ]}
               value={formData.name}
               onChangeText={(value) => updateFormData('name', value)}
               placeholder="Enter project name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Company</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Company</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.company}
               onChangeText={(value) => updateFormData('company', value)}
               placeholder="Enter company name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Project Type</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Project Type</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.type}
               onChangeText={(value) => updateFormData('type', value)}
               placeholder="e.g., Wedding, Corporate, Event"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Client *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Client *</Text>
             {isLoadingClients ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000" />
-                <Text style={styles.loadingText}>Loading clients...</Text>
+                <ActivityIndicator size="small" color={colors.text} />
+                <Text style={[styles.loadingText, { color: colors.text }]}>Loading clients...</Text>
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.dropdownButton, errors.clientId && styles.inputError]}
+                style={[
+                  styles.dropdownButton,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  errors.clientId && styles.inputError
+                ]}
                 onPress={() => setShowClientDropdown(!showClientDropdown)}
               >
-                <Text style={[styles.dropdownText, formData.clientId === 0 && styles.placeholderText]}>
+                <Text style={[
+                  styles.dropdownText,
+                  { color: formData.clientId === 0 ? colors.placeholder : colors.text }
+                ]}>
                   {getSelectedClientName()}
                 </Text>
                 <MaterialIcons
                   name={showClientDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
                   size={24}
-                  color="#666"
+                  color={colors.icon}
                 />
               </TouchableOpacity>
             )}
             {errors.clientId && <Text style={styles.errorText}>{errors.clientId}</Text>}
 
             {showClientDropdown && (
-              <View style={styles.dropdown}>
+              <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
                   {/* Existing Clients */}
                   {(clients || []).map((client) => (
                     <TouchableOpacity
                       key={client.id}
-                      style={styles.dropdownItem}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         updateFormData('clientId', client.id);
                         setShowClientDropdown(false);
                       }}
                     >
-                      <Text style={styles.dropdownItemText}>
+                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>
                         {client.name} ({client.company})
                       </Text>
                     </TouchableOpacity>
@@ -349,7 +369,7 @@ export default function EditProjectScreen() {
                   {/* Empty state */}
                   {(!clients || clients.length === 0) && (
                     <View style={styles.emptyDropdownState}>
-                      <Text style={styles.emptyDropdownText}>
+                      <Text style={[styles.emptyDropdownText, { color: colors.muted }]}>
                         No clients found.
                       </Text>
                     </View>
@@ -361,17 +381,21 @@ export default function EditProjectScreen() {
         </View>
 
         {/* Project Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Project Details</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Project Details</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($)</Text>
             <TextInput
-              style={[styles.textInput, errors.amount && styles.inputError]}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+                errors.amount && styles.inputError
+              ]}
               value={formData.amount.toString()}
               onChangeText={(value) => updateFormData('amount', value)}
               placeholder="0"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               keyboardType="numeric"
             />
             {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
@@ -393,97 +417,140 @@ export default function EditProjectScreen() {
           />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Location</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Location</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.location}
               onChangeText={(value) => updateFormData('location', value)}
               placeholder="Enter location"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Address</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.address}
               onChangeText={(value) => updateFormData('address', value)}
               placeholder="Enter full address"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={3}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Reference</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Reference</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.reference}
               onChangeText={(value) => updateFormData('reference', value)}
               placeholder="Enter reference details"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>OneDrive Link</Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
+              value={formData.onedriveLink}
+              onChangeText={(value) => updateFormData('onedriveLink', value)}
+              placeholder="Enter OneDrive folder link"
+              placeholderTextColor={colors.placeholder}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
         </View>
 
         {/* Outsourcing Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.switchRow}>
-            <Text style={styles.sectionTitle}>Outsourcing</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Outsourcing</Text>
             <Switch
               value={formData.outsourcing}
               onValueChange={(value) => updateFormData('outsourcing', value)}
-              trackColor={{ false: '#e0e0e0', true: '#000' }}
-              thumbColor="#fff"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={
+                formData.outsourcing
+                  ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                  : (colors.background === '#000000' ? '#888888' : '#666666')
+              }
             />
           </View>
 
           {formData.outsourcing && (
             <>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourcing Amount ($)</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Amount ($)</Text>
                 <TextInput
-                  style={[styles.textInput, errors.outsourcingAmt && styles.inputError]}
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+                    errors.outsourcingAmt && styles.inputError
+                  ]}
                   value={formData.outsourcingAmt.toString()}
                   onChangeText={(value) => updateFormData('outsourcingAmt', value)}
                   placeholder="0"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                   keyboardType="numeric"
                 />
                 {errors.outsourcingAmt && <Text style={styles.errorText}>{errors.outsourcingAmt}</Text>}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourced For</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourced For</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+                  ]}
                   value={formData.outFor}
                   onChangeText={(value) => updateFormData('outFor', value)}
                   placeholder="e.g., Photography, Videography"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourcing Client</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Client</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+                  ]}
                   value={formData.outClient}
                   onChangeText={(value) => updateFormData('outClient', value)}
                   placeholder="Enter outsourcing client name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
 
               <View style={styles.switchRow}>
-                <Text style={styles.inputLabel}>Outsourcing Paid</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Paid</Text>
                 <Switch
                   value={formData.outsourcingPaid}
                   onValueChange={(value) => updateFormData('outsourcingPaid', value)}
-                  trackColor={{ false: '#e0e0e0', true: '#000' }}
-                  thumbColor="#fff"
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={
+                    formData.outsourcingPaid
+                      ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                      : (colors.background === '#000000' ? '#888888' : '#666666')
+                  }
                 />
               </View>
             </>
@@ -495,16 +562,23 @@ export default function EditProjectScreen() {
       </ScrollView>
 
       {/* Bottom Save Button */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={[
+        styles.bottomButtonContainer,
+        { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }
+      ]}>
         <TouchableOpacity
           onPress={handleSubmit}
-          style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+          style={[
+            styles.bottomSaveButton,
+            { backgroundColor: colors.primary },
+            isLoading && styles.disabledButton
+          ]}
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.background} />
           ) : (
-            <Text style={styles.saveButtonText}>Update Project</Text>
+            <Text style={[styles.saveButtonText, { color: colors.background }]}>Update Project</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -515,7 +589,6 @@ export default function EditProjectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
@@ -525,16 +598,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
@@ -542,19 +612,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
     marginLeft: 15,
   },
   bottomButtonContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   bottomSaveButton: {
-    backgroundColor: '#000',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -564,7 +630,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -572,7 +637,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 12,
@@ -581,7 +645,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 20,
   },
   inputGroup: {
@@ -590,22 +653,17 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#000',
     borderWidth: 1,
-    borderColor: 'transparent',
   },
   inputError: {
     borderColor: '#ff6b6b',
-    backgroundColor: '#fff5f5',
   },
   errorText: {
     fontSize: 12,
@@ -614,7 +672,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   dropdownButton: {
-    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -622,23 +679,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'transparent',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#000',
     flex: 1,
   },
   placeholderText: {
-    color: '#999',
   },
   dropdown: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     marginTop: 8,
     maxHeight: 200,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   dropdownScroll: {
     maxHeight: 200,
@@ -647,28 +699,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: '#000',
   },
   emptyDropdownState: {
     padding: 20,
     alignItems: 'center',
   },
-  emptyDropdownText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+  dropdownItemText: {
+    fontSize: 16,
   },
-  bottomPadding: {
-    height: 100,
+  lastDropdownItem: {
+    borderBottomWidth: 0,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingVertical: 8,
+  },
+  switchText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  bottomPadding: {
+    height: 100,
   },
 });

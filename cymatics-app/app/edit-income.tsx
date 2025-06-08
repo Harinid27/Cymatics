@@ -242,8 +242,8 @@ export default function EditIncomeScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Income Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Income Details</Text>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Income Details</Text>
 
           <DatePicker
             label="Date *"
@@ -254,38 +254,49 @@ export default function EditIncomeScreen() {
           />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Description *</Text>
             <TextInput
-              style={[styles.textInput, errors.description && styles.inputError]}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+                errors.description && styles.inputError
+              ]}
               value={formData.description}
               onChangeText={(value) => updateFormData('description', value)}
               placeholder="Enter income description"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
             {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Amount ($) *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($) *</Text>
             <TextInput
-              style={[styles.textInput, errors.amount && styles.inputError]}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
+                errors.amount && styles.inputError
+              ]}
               value={formData.amount.toString()}
               onChangeText={(value) => updateFormData('amount', value)}
               placeholder="0.00"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               keyboardType="numeric"
             />
             {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Note</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Note</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }
+              ]}
               value={formData.note}
               onChangeText={(value) => updateFormData('note', value)}
               placeholder="Additional notes (optional)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={3}
             />
@@ -293,58 +304,69 @@ export default function EditIncomeScreen() {
         </View>
 
         {/* Project Association */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.switchRow}>
-            <Text style={styles.sectionTitle}>Project Income</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Project Income</Text>
             <Switch
               value={formData.projectIncome}
               onValueChange={handleProjectIncomeToggle}
-              trackColor={{ false: '#e0e0e0', true: '#28a745' }}
-              thumbColor="#fff"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={
+                formData.projectIncome
+                  ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                  : (colors.background === '#000000' ? '#888888' : '#666666')
+              }
             />
           </View>
 
           {formData.projectIncome && (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Project *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Project *</Text>
               {isLoadingProjects ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#000" />
-                  <Text style={styles.loadingText}>Loading projects...</Text>
+                  <ActivityIndicator size="small" color={colors.text} />
+                  <Text style={[styles.loadingText, { color: colors.text }]}>Loading projects...</Text>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={[styles.dropdownButton, errors.projectId && styles.inputError]}
+                  style={[
+                    styles.dropdownButton,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    errors.projectId && styles.inputError
+                  ]}
                   onPress={() => setShowProjectDropdown(!showProjectDropdown)}
                 >
-                  <Text style={[styles.dropdownText, !formData.projectId && styles.placeholderText]}>
+                  <Text style={[
+                    styles.dropdownText,
+                    { color: !formData.projectId ? colors.placeholder : colors.text }
+                  ]}>
                     {getSelectedProjectName()}
                   </Text>
                   <MaterialIcons
                     name={showProjectDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
                     size={24}
-                    color="#666"
+                    color={colors.icon}
                   />
                 </TouchableOpacity>
               )}
               {errors.projectId && <Text style={styles.errorText}>{errors.projectId}</Text>}
 
               {showProjectDropdown && (
-                <View style={styles.dropdown}>
+                <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
                     {(projects || []).map((project) => (
                       <TouchableOpacity
                         key={project.id}
-                        style={styles.dropdownItem}
+                        style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                         onPress={() => {
                           updateFormData('projectId', project.id);
                           setShowProjectDropdown(false);
                         }}
                       >
-                        <Text style={styles.dropdownItemText}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>
                           {project.code} - {project.name}
                         </Text>
-                        <Text style={styles.dropdownItemSubtext}>
+                        <Text style={[styles.dropdownItemSubtext, { color: colors.muted }]}>
                           {project.client?.name || 'No client'}
                         </Text>
                       </TouchableOpacity>
@@ -361,16 +383,23 @@ export default function EditIncomeScreen() {
       </ScrollView>
 
       {/* Bottom Save Button */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={[
+        styles.bottomButtonContainer,
+        { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }
+      ]}>
         <TouchableOpacity
           onPress={handleSubmit}
-          style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+          style={[
+            styles.bottomSaveButton,
+            { backgroundColor: '#28a745' },
+            isLoading && styles.disabledButton
+          ]}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.saveButtonText}>Update Income</Text>
+            <Text style={[styles.saveButtonText, { color: '#fff' }]}>Update Income</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -381,7 +410,6 @@ export default function EditIncomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
@@ -391,16 +419,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
@@ -408,19 +433,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
     marginLeft: 15,
   },
   bottomButtonContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   bottomSaveButton: {
-    backgroundColor: '#28a745',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -430,7 +451,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -438,7 +458,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 12,
@@ -447,7 +466,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 20,
   },
   inputGroup: {
@@ -456,18 +474,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000',
-    backgroundColor: '#fff',
   },
   inputError: {
     borderColor: '#dc3545',
@@ -482,25 +496,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    backgroundColor: '#fff',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#000',
     flex: 1,
   },
   placeholderText: {
-    color: '#999',
   },
   dropdown: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
-    backgroundColor: '#fff',
     marginTop: 5,
     maxHeight: 200,
   },
@@ -511,16 +519,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#000',
     fontWeight: '500',
   },
   dropdownItemSubtext: {
     fontSize: 14,
-    color: '#666',
     marginTop: 2,
   },
   switchRow: {

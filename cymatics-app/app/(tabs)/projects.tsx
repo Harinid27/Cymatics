@@ -13,6 +13,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Share,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -37,7 +38,7 @@ export default function ProjectsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<string>('all');
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -55,23 +56,40 @@ export default function ProjectsScreen() {
     setIsMenuVisible(false);
   };
 
+  // Apply filters when projects or selectedFilters change
+  useEffect(() => {
+    if (projects.length > 0) {
+      applyFilters(projects, searchQuery);
+    }
+  }, [projects, selectedFilters, searchQuery]);
+
   // Search and filter functions
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    applyFilters(projects, query, selectedFilter);
+    applyFilters(projects, query);
   };
 
   const handleFilterPress = () => {
     setIsFilterModalVisible(true);
   };
 
-  const handleFilterSelect = (filter: string) => {
-    setSelectedFilter(filter);
+  const closeFilterModal = () => {
     setIsFilterModalVisible(false);
-    applyFilters(projects, searchQuery, filter);
   };
 
-  const applyFilters = (projectList: Project[], query: string, filter: string) => {
+  const toggleFilter = (filter: string) => {
+    setSelectedFilters(prev =>
+      prev.includes(filter)
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedFilters([]);
+  };
+
+  const applyFilters = (projectList: Project[], query: string) => {
     let filtered = [...projectList];
 
     // Apply search filter
@@ -79,42 +97,69 @@ export default function ProjectsScreen() {
       filtered = filtered.filter(project =>
         project.name.toLowerCase().includes(query.toLowerCase()) ||
         project.code.toLowerCase().includes(query.toLowerCase()) ||
-        project.status.toLowerCase().includes(query.toLowerCase())
+        project.status.toLowerCase().includes(query.toLowerCase()) ||
+        (project.client?.name && project.client.name.toLowerCase().includes(query.toLowerCase())) ||
+        (project.client?.company && project.client.company.toLowerCase().includes(query.toLowerCase()))
       );
     }
 
-    // Apply status filter
-    if (filter !== 'all') {
+    // Apply additional filters from the filter modal
+    if (selectedFilters.length > 0) {
       filtered = filtered.filter(project => {
-        switch (filter) {
-          case 'active':
-            // Check for active status variations and pending amount
-            return project.status?.toLowerCase() === 'active' ||
-                   project.status?.toLowerCase() === 'ongoing' ||
-                   project.status?.toLowerCase() === 'in_progress' ||
-                   (project.pendingAmt && project.pendingAmt > 0);
-          case 'pending':
-            // Check for pending status variations or projects with pending amounts
-            return project.status?.toLowerCase() === 'pending' ||
-                   project.status?.toLowerCase() === 'on_hold' ||
-                   project.status?.toLowerCase() === 'draft' ||
-                   (project.pendingAmt && project.pendingAmt > 0 && project.status?.toLowerCase() !== 'completed');
-          case 'completed':
-            // Check for completed status or projects with no pending amount
-            return project.status?.toLowerCase() === 'completed' ||
-                   project.status?.toLowerCase() === 'finished' ||
-                   (project.pendingAmt && project.pendingAmt <= 0);
-          case 'high_value':
-            return project.amount >= 50000;
-          case 'outsourced':
-            return project.outsourcing;
-          default:
-            return true;
-        }
+        return selectedFilters.some(filter => {
+          switch (filter) {
+            case 'Active':
+              return project.status?.toLowerCase() === 'active' ||
+                     project.status?.toLowerCase() === 'ongoing' ||
+                     project.status?.toLowerCase() === 'in_progress' ||
+                     (project.pendingAmt && project.pendingAmt > 0);
+            case 'Pending':
+              return project.status?.toLowerCase() === 'pending' ||
+                     project.status?.toLowerCase() === 'on_hold' ||
+                     project.status?.toLowerCase() === 'draft' ||
+                     (project.pendingAmt && project.pendingAmt > 0 && project.status?.toLowerCase() !== 'completed');
+            case 'Completed':
+              return project.status?.toLowerCase() === 'completed' ||
+                     project.status?.toLowerCase() === 'finished' ||
+                     (project.pendingAmt && project.pendingAmt <= 0);
+            case 'High Value (≥₹50k)':
+              return project.amount >= 50000;
+            case 'Outsourced':
+              return project.outsourcing;
+            default:
+              return true;
+          }
+        });
       });
     }
 
     setFilteredProjects(filtered);
+  };
+
+  const getFilterOptions = () => {
+    const statusFilters = [
+      { label: 'Active', value: 'Active', count: projects.filter(p =>
+        p.status?.toLowerCase() === 'active' ||
+        p.status?.toLowerCase() === 'ongoing' ||
+        p.status?.toLowerCase() === 'in_progress' ||
+        (p.pendingAmt && p.pendingAmt > 0)
+      ).length },
+      { label: 'Pending', value: 'Pending', count: projects.filter(p =>
+        p.status?.toLowerCase() === 'pending' ||
+        p.status?.toLowerCase() === 'on_hold' ||
+        p.status?.toLowerCase() === 'draft' ||
+        (p.pendingAmt && p.pendingAmt > 0 && p.status?.toLowerCase() !== 'completed')
+      ).length },
+      { label: 'Completed', value: 'Completed', count: projects.filter(p =>
+        p.status?.toLowerCase() === 'completed' ||
+        p.status?.toLowerCase() === 'finished' ||
+        (p.pendingAmt && p.pendingAmt <= 0)
+      ).length },
+      { label: 'High Value (≥₹50k)', value: 'High Value (≥₹50k)', count: projects.filter(p => p.amount >= 50000).length },
+      { label: 'Outsourced', value: 'Outsourced', count: projects.filter(p => p.outsourcing).length },
+    ];
+
+    return statusFilters;
   };
 
   // Load projects data
@@ -140,11 +185,11 @@ export default function ProjectsScreen() {
           const newProjects = response.projects || [];
           if (page === 1) {
             setProjects(newProjects);
-            applyFilters(newProjects, searchQuery, selectedFilter);
+            applyFilters(newProjects, searchQuery);
           } else {
             const updatedProjects = [...(projects || []), ...newProjects];
             setProjects(updatedProjects);
-            applyFilters(updatedProjects, searchQuery, selectedFilter);
+            applyFilters(updatedProjects, searchQuery);
           }
           setPagination(response.pagination || {
             page: 1,
@@ -159,13 +204,13 @@ export default function ProjectsScreen() {
         } else {
           console.log('No response from API');
           setProjects([]);
-          applyFilters([], searchQuery, selectedFilter);
+          applyFilters([], searchQuery);
           setError('Failed to load projects. Please check your connection.');
         }
       } catch (apiError) {
         console.error('API error:', apiError);
         setProjects([]);
-        applyFilters([], searchQuery, selectedFilter);
+        applyFilters([], searchQuery);
         setError('Failed to load projects. Please check your connection.');
       }
     } catch (error) {
@@ -197,6 +242,66 @@ export default function ProjectsScreen() {
   // Handle project edit
   const handleEditProject = (project: Project) => {
     router.push(`/edit-project?id=${project.id}`);
+  };
+
+  // Handle project delete
+  const handleDeleteProject = (project: Project) => {
+    Alert.alert(
+      'Delete Project',
+      `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const success = await ProjectsService.deleteProject(project.id);
+
+              if (success) {
+                // Remove the project from local state
+                const updatedProjects = projects.filter(p => p.id !== project.id);
+                setProjects(updatedProjects);
+                applyFilters(updatedProjects, searchQuery);
+
+                Alert.alert('Success', 'Project deleted successfully');
+              } else {
+                Alert.alert('Error', 'Failed to delete project. Please try again.');
+              }
+            } catch (error) {
+              console.error('Delete project error:', error);
+              Alert.alert('Error', 'Failed to delete project. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle project share
+  const handleShareProject = async (project: Project) => {
+    try {
+      const shareContent = {
+        title: `Project: ${project.name}`,
+        message: `Check out this project:\n\nProject: ${project.name}\nCode: ${project.code}\nAmount: ${formatCurrency(project.amount)}\nStatus: ${formatStatus(project.status)}\n\nShared from Cymatics App`,
+        url: '', // You can add a deep link URL here if needed
+      };
+
+      const result = await Share.share(shareContent);
+
+      if (result.action === Share.sharedAction) {
+        console.log('Project shared successfully');
+      }
+    } catch (error) {
+      console.error('Error sharing project:', error);
+      Alert.alert('Error', 'Failed to share project. Please try again.');
+    }
   };
 
 
@@ -241,7 +346,7 @@ export default function ProjectsScreen() {
     return (
       <View key={project.id} style={styles.projectCardContainer}>
         <TouchableOpacity
-          style={styles.projectCard}
+          style={[styles.projectCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
           onPress={() => handleProjectPress(project)}
         >
           <Image
@@ -250,12 +355,17 @@ export default function ProjectsScreen() {
           />
           <View style={styles.projectInfo}>
             <View style={styles.projectHeader}>
-              <Text style={styles.duration}>{duration.toUpperCase()}</Text>
-              <Text style={styles.code}>{project.code}</Text>
+              <Text style={[styles.duration, { color: colors.muted }]}>{duration.toUpperCase()}</Text>
+              <Text style={[styles.code, { color: colors.muted }]}>{project.code}</Text>
             </View>
-            <Text style={styles.projectTitle}>{project.name}</Text>
+            <Text style={[styles.projectTitle, { color: colors.text }]}>{project.name}</Text>
+            {project.client && (
+              <Text style={[styles.clientName, { color: colors.muted }]}>
+                Client: {project.client.company || project.client.name}
+              </Text>
+            )}
             <View style={styles.projectMeta}>
-              <Text style={styles.projectAmount}>
+              <Text style={[styles.projectAmount, { color: colors.primary }]}>
                 {formatCurrency(project.amount)}
               </Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(project.status) }]}>
@@ -265,23 +375,39 @@ export default function ProjectsScreen() {
               </View>
             </View>
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.filesButton}>
-                <MaterialIcons name="folder" size={16} color="#fff" />
-                <Text style={styles.filesButtonText}>Files</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.shareButton}>
-                <MaterialIcons name="share" size={16} color="#666" />
-                <Text style={styles.shareButtonText}>Share</Text>
+              <TouchableOpacity style={[styles.filesButton, { backgroundColor: colors.primary }]}>
+                <MaterialIcons name="folder" size={16} color={colors.background} />
+                <Text style={[styles.filesButtonText, { color: colors.background }]}>Files</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.editButton}
+                style={[styles.shareButton, { backgroundColor: colors.surface }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleShareProject(project);
+                }}
+              >
+                <MaterialIcons name="share" size={16} color={colors.muted} />
+                <Text style={[styles.shareButtonText, { color: colors.muted }]}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: colors.surface }]}
                 onPress={(e) => {
                   e.stopPropagation();
                   handleEditProject(project);
                 }}
               >
-                <MaterialIcons name="edit" size={16} color="#4285F4" />
-                <Text style={styles.editButtonText}>Edit</Text>
+                <MaterialIcons name="edit" size={16} color={colors.primary} />
+                <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteButton, { backgroundColor: colors.surface }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDeleteProject(project);
+                }}
+              >
+                <MaterialIcons name="delete" size={16} color="#F44336" />
+                <Text style={[styles.deleteButtonText, { color: "#F44336" }]}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -307,50 +433,33 @@ export default function ProjectsScreen() {
       />
 
       {/* Search and Filter Bar */}
-      <View style={styles.searchFilterContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
+      <View style={[styles.searchFilterContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <MaterialIcons name="search" size={20} color={colors.muted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search projects..."
             value={searchQuery}
             onChangeText={handleSearch}
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => handleSearch('')}>
-              <MaterialIcons name="clear" size={20} color="#999" />
+              <MaterialIcons name="clear" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.filterButton} onPress={handleFilterPress}>
-          <MaterialIcons name="filter-list" size={20} color="#666" />
-          {selectedFilter !== 'all' && <View style={styles.filterIndicator} />}
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surface }]} onPress={handleFilterPress}>
+          <MaterialIcons name="filter-list" size={20} color={colors.text} />
+          {selectedFilters.length > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.filterBadgeText, { color: colors.background }]}>{selectedFilters.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Action Bar */}
-      <View style={styles.actionBar}>
-        <View style={styles.actionBarLeft}>
-          {selectedFilter !== 'all' && (
-            <View style={styles.activeFilterChip}>
-              <Text style={styles.activeFilterText}>
-                {selectedFilter === 'active' ? 'Active' :
-                 selectedFilter === 'pending' ? 'Pending' :
-                 selectedFilter === 'completed' ? 'Completed' :
-                 selectedFilter === 'high_value' ? 'High Value' :
-                 selectedFilter === 'outsourced' ? 'Outsourced' : selectedFilter}
-              </Text>
-              <TouchableOpacity onPress={() => handleFilterSelect('all')}>
-                <MaterialIcons name="close" size={16} color="#4285F4" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-        <View style={styles.actionBarRight}>
-          {/* Action buttons can be added here if needed */}
-        </View>
-      </View>
+
 
       {/* Projects List */}
       <ScrollView
@@ -360,50 +469,50 @@ export default function ProjectsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#4285F4']}
-            tintColor="#4285F4"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4285F4" />
-            <Text style={styles.loadingText}>Loading projects...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.muted }]}>Loading projects...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => loadProjects()}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadProjects()}>
+              <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : (!projects || projects.length === 0) ? (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="work-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyTitle}>No Projects Yet</Text>
-            <Text style={styles.emptyText}>
+            <MaterialIcons name="work-outline" size={64} color={colors.muted} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Projects Yet</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
               {error
                 ? 'Unable to load projects. Please check your connection and try again.'
                 : 'Create your first project to get started'
               }
             </Text>
-            <TouchableOpacity style={styles.createFirstButton} onPress={handleCreateProject}>
-              <Text style={styles.createFirstButtonText}>Create Project</Text>
+            <TouchableOpacity style={[styles.createFirstButton, { backgroundColor: colors.primary }]} onPress={handleCreateProject}>
+              <Text style={[styles.createFirstButtonText, { color: colors.background }]}>Create Project</Text>
             </TouchableOpacity>
           </View>
         ) : filteredProjects.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="search-off" size={64} color="#ccc" />
-            <Text style={styles.emptyTitle}>No Projects Found</Text>
-            <Text style={styles.emptyText}>
+            <MaterialIcons name="search-off" size={64} color={colors.muted} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Projects Found</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
               {searchQuery ? `No projects match "${searchQuery}"` : 'No projects match the selected filter'}
             </Text>
-            <TouchableOpacity style={styles.createFirstButton} onPress={() => {
+            <TouchableOpacity style={[styles.createFirstButton, { backgroundColor: colors.primary }]} onPress={() => {
               setSearchQuery('');
-              setSelectedFilter('all');
-              applyFilters(projects, '', 'all');
+              setSelectedFilters([]);
+              applyFilters(projects, '');
             }}>
-              <Text style={styles.createFirstButtonText}>Clear Filters</Text>
+              <Text style={[styles.createFirstButtonText, { color: colors.background }]}>Clear Filters</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -415,10 +524,10 @@ export default function ProjectsScreen() {
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        style={styles.floatingButton}
+        style={[styles.floatingButton, { backgroundColor: colors.primary }]}
         onPress={handleCreateProject}
       >
-        <MaterialIcons name="add" size={28} color="#fff" />
+        <MaterialIcons name="add" size={28} color={colors.background} />
       </TouchableOpacity>
 
       {/* Filter Modal */}
@@ -429,77 +538,57 @@ export default function ProjectsScreen() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Projects</Text>
-              <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
-                <MaterialIcons name="close" size={24} color="#000" />
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={[styles.filterModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterModalTitle, { color: colors.text }]}>Filter Projects</Text>
+              <TouchableOpacity onPress={closeFilterModal} style={styles.filterModalCloseButton}>
+                <MaterialIcons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.filterOptions}>
-              {[
-                { key: 'all', label: 'All Projects', count: projects.length },
-                {
-                  key: 'active',
-                  label: 'Active',
-                  count: projects.filter(p =>
-                    p.status?.toLowerCase() === 'active' ||
-                    p.status?.toLowerCase() === 'ongoing' ||
-                    p.status?.toLowerCase() === 'in_progress' ||
-                    (p.pendingAmt && p.pendingAmt > 0)
-                  ).length
-                },
-                {
-                  key: 'pending',
-                  label: 'Pending',
-                  count: projects.filter(p =>
-                    p.status?.toLowerCase() === 'pending' ||
-                    p.status?.toLowerCase() === 'on_hold' ||
-                    p.status?.toLowerCase() === 'draft' ||
-                    (p.pendingAmt && p.pendingAmt > 0 && p.status?.toLowerCase() !== 'completed')
-                  ).length
-                },
-                {
-                  key: 'completed',
-                  label: 'Completed',
-                  count: projects.filter(p =>
-                    p.status?.toLowerCase() === 'completed' ||
-                    p.status?.toLowerCase() === 'finished' ||
-                    (p.pendingAmt && p.pendingAmt <= 0)
-                  ).length
-                },
-                { key: 'high_value', label: 'High Value (≥₹50k)', count: projects.filter(p => p.amount >= 50000).length },
-                { key: 'outsourced', label: 'Outsourced', count: projects.filter(p => p.outsourcing).length },
-              ].map((filter) => (
+            <ScrollView style={styles.filterOptions} showsVerticalScrollIndicator={false}>
+              {getFilterOptions().map((option, index) => (
                 <TouchableOpacity
-                  key={filter.key}
+                  key={index}
                   style={[
                     styles.filterOption,
-                    selectedFilter === filter.key && styles.selectedFilterOption
+                    { borderBottomColor: colors.border },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOption, { backgroundColor: colors.surface }]
                   ]}
-                  onPress={() => handleFilterSelect(filter.key)}
+                  onPress={() => toggleFilter(option.value)}
                 >
-                  <View style={styles.filterOptionContent}>
-                    <Text style={[
-                      styles.filterOptionText,
-                      selectedFilter === filter.key && styles.selectedFilterOptionText
-                    ]}>
-                      {filter.label}
-                    </Text>
-                    <Text style={[
-                      styles.filterOptionCount,
-                      selectedFilter === filter.key && styles.selectedFilterOptionText
-                    ]}>
-                      {filter.count}
-                    </Text>
-                  </View>
-                  {selectedFilter === filter.key && (
-                    <MaterialIcons name="check" size={20} color="#4285F4" />
+                  <Text style={[
+                    styles.filterOptionText,
+                    { color: colors.text },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOptionText, { color: colors.primary }]
+                  ]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[styles.filterOptionCount, { color: colors.muted }]}>
+                    {option.count}
+                  </Text>
+                  {selectedFilters.includes(option.value) && (
+                    <MaterialIcons name="check" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {/* Filter Actions */}
+            <View style={[styles.filterModalActions, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.clearFiltersButton, { borderColor: colors.border, backgroundColor: 'transparent' }]}
+                onPress={clearFilters}
+              >
+                <Text style={[styles.clearFiltersText, { color: colors.text }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.applyFiltersButton, { backgroundColor: colors.primary }]}
+                onPress={closeFilterModal}
+              >
+                <Text style={[styles.applyFiltersText, { color: colors.background }]}>Apply</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -513,71 +602,63 @@ export default function ProjectsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   menuButton: {
     marginRight: 15,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F8F9FA',
   },
   headerActionButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F0F4FF',
   },
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
     borderRadius: 10,
     paddingHorizontal: 15,
     paddingVertical: 12,
     marginRight: 15,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
     fontSize: 16,
-    color: '#000',
   },
   filterButton: {
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#F8F9FA',
     marginLeft: 12,
     position: 'relative',
   },
-  filterIndicator: {
+  filterBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4285F4',
+    top: 4,
+    right: 4,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingVertical: 8,
   },
   actionBarLeft: {
     flexDirection: 'row',
@@ -591,17 +672,14 @@ const styles = StyleSheet.create({
   activeFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#4285F4',
   },
   activeFilterText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#4285F4',
     marginRight: 6,
   },
   scrollView: {
@@ -615,7 +693,6 @@ const styles = StyleSheet.create({
   },
   projectCard: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 15,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -645,17 +722,19 @@ const styles = StyleSheet.create({
   duration: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
   },
   code: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
   },
   projectTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    marginBottom: 8,
+  },
+  clientName: {
+    fontSize: 14,
+    fontWeight: '500',
     marginBottom: 10,
   },
   projectMeta: {
@@ -667,7 +746,6 @@ const styles = StyleSheet.create({
   projectAmount: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#4285F4',
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -688,13 +766,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
   filesButtonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 6,
@@ -704,13 +780,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
   shareButtonText: {
-    color: '#666',
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 6,
@@ -720,13 +794,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e3f2fd',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
   editButtonText: {
-    color: '#4285F4',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  deleteButtonText: {
     fontSize: 14,
     fontWeight: '500',
     marginLeft: 6,
@@ -738,7 +824,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#4285F4',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -760,7 +845,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#666',
   },
   errorContainer: {
     flex: 1,
@@ -771,18 +855,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#FF6B6B',
     textAlign: 'center',
     marginBottom: 15,
   },
   retryButton: {
-    backgroundColor: '#4285F4',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -796,24 +877,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
     marginTop: 15,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
     textAlign: 'center',
     marginBottom: 20,
   },
   createFirstButton: {
-    backgroundColor: '#4285F4',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   createFirstButtonText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -824,60 +901,77 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
   },
-  modalHeader: {
+  filterModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  modalTitle: {
+  filterModalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+  },
+  filterModalCloseButton: {
+    padding: 4,
   },
   filterOptions: {
-    padding: 20,
+    maxHeight: 400,
   },
   filterOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
   },
   selectedFilterOption: {
-    backgroundColor: '#e3f2fd',
-    borderWidth: 1,
-    borderColor: '#4285F4',
-  },
-  filterOptionContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: 'rgba(66, 133, 244, 0.1)',
   },
   filterOptionText: {
     fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
+    flex: 1,
   },
   selectedFilterOptionText: {
-    color: '#4285F4',
     fontWeight: '600',
   },
   filterOptionCount: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '500',
+    marginRight: 10,
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+  },
+  clearFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  clearFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  applyFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  applyFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

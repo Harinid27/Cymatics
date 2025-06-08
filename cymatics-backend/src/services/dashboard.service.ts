@@ -314,6 +314,255 @@ class DashboardService {
   }
 
   /**
+   * Get monthly income vs expense chart data (Django equivalent)
+   */
+  async getMonthlyIncomeExpenseChart(): Promise<{
+    months: string[];
+    incomeValues: number[];
+    expenseValues: number[];
+  }> {
+    const currentYear = new Date().getFullYear();
+
+    // Get income data grouped by month
+    const incomeData = await prisma.income.groupBy({
+      by: ['date'],
+      _sum: { amount: true },
+      where: {
+        date: {
+          gte: new Date(currentYear, 0, 1),
+          lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Get expense data grouped by month
+    const expenseData = await prisma.expense.groupBy({
+      by: ['date'],
+      _sum: { amount: true },
+      where: {
+        date: {
+          gte: new Date(currentYear, 0, 1),
+          lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Prepare data for all 12 months
+    const months: string[] = [];
+    const incomeValues: number[] = [];
+    const expenseValues: number[] = [];
+
+    for (let month = 0; month < 12; month++) {
+      const monthDate = new Date(currentYear, month, 1);
+      months.push(monthDate.toLocaleDateString('en-US', { month: 'long' }));
+
+      // Find income for this month
+      const monthIncome = incomeData.find(item =>
+        item.date.getMonth() === month
+      );
+      incomeValues.push(monthIncome?._sum.amount || 0);
+
+      // Find expense for this month
+      const monthExpense = expenseData.find(item =>
+        item.date.getMonth() === month
+      );
+      expenseValues.push(monthExpense?._sum.amount || 0);
+    }
+
+    return { months, incomeValues, expenseValues };
+  }
+
+  /**
+   * Get monthly project count chart data (Django equivalent)
+   */
+  async getMonthlyProjectChart(): Promise<{
+    months: string[];
+    projectCounts: number[];
+  }> {
+    const currentYear = new Date().getFullYear();
+
+    // Get project data grouped by month based on shoot_start_date
+    const projectData = await prisma.project.groupBy({
+      by: ['shootStartDate'],
+      _count: true,
+      where: {
+        shootStartDate: {
+          gte: new Date(currentYear, 0, 1),
+          lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+      orderBy: { shootStartDate: 'asc' },
+    });
+
+    // Prepare data for all 12 months
+    const months: string[] = [];
+    const projectCounts: number[] = [];
+
+    for (let month = 0; month < 12; month++) {
+      const monthDate = new Date(currentYear, month, 1);
+      months.push(monthDate.toLocaleDateString('en-US', { month: 'long' }));
+
+      // Find projects for this month
+      const monthProjects = projectData.find(item =>
+        item.shootStartDate?.getMonth() === month
+      );
+      projectCounts.push(monthProjects?._count || 0);
+    }
+
+    return { months, projectCounts };
+  }
+
+  /**
+   * Get expense pie chart data (Django equivalent)
+   */
+  async getExpensePieChart(): Promise<{
+    categories: string[];
+    amounts: number[];
+  }> {
+    const expenseData = await prisma.expense.groupBy({
+      by: ['category'],
+      _sum: { amount: true },
+      orderBy: {
+        _sum: { amount: 'desc' },
+      },
+    });
+
+    const categories = expenseData.map(item => item.category || 'Unknown');
+    const amounts = expenseData.map(item => item._sum.amount || 0);
+
+    return { categories, amounts };
+  }
+
+  /**
+   * Get monthly expenses stacked bar chart data (Django equivalent)
+   */
+  async getMonthlyExpensesStackedChart(): Promise<{
+    months: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }>;
+  }> {
+    const currentYear = new Date().getFullYear();
+
+    // Get expenses grouped by category and month
+    const expenseData = await prisma.expense.groupBy({
+      by: ['category', 'date'],
+      _sum: { amount: true },
+      where: {
+        date: {
+          gte: new Date(currentYear, 0, 1),
+          lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Get all unique categories
+    const categories = [...new Set(expenseData.map(item => item.category))];
+
+    // Prepare month labels
+    const months = [];
+    for (let month = 0; month < 12; month++) {
+      const monthDate = new Date(currentYear, month, 1);
+      months.push(monthDate.toLocaleDateString('en-US', { month: 'long' }));
+    }
+
+    // Color palette for categories
+    const categoryColors = [
+      'rgb(20,97,103)', 'rgb(45,179,190)', 'rgb(121,90,128)', 'rgb(189,121,202)',
+      'rgb(120,97,57)', 'rgb(177,142,79)', 'rgb(161,161,161)', 'rgb(158,138,142)',
+      'rgb(186,143,153)', 'rgb(176,183,183)', 'rgb(79,64,59)', 'rgb(157,131,124)',
+      'rgb(181,172,150)', 'rgb(60,148,156)', 'rgb(116,187,194)', 'rgb(98,204,169)'
+    ];
+
+    // Create datasets for each category
+    const datasets = categories.map((category, index) => {
+      const data = [];
+
+      for (let month = 0; month < 12; month++) {
+        const monthExpense = expenseData.find(item =>
+          item.category === category && item.date.getMonth() === month
+        );
+        data.push(monthExpense?._sum.amount || 0);
+      }
+
+      return {
+        label: category || 'Unknown',
+        data,
+        backgroundColor: categoryColors[index % categoryColors.length],
+      };
+    });
+
+    return { months, datasets };
+  }
+
+  /**
+   * Get category expenses bar chart data (Django equivalent)
+   */
+  async getCategoryExpensesChart(): Promise<{
+    categories: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }>;
+  }> {
+    const currentYear = new Date().getFullYear();
+
+    // Get expenses grouped by category and month
+    const expenseData = await prisma.expense.groupBy({
+      by: ['category', 'date'],
+      _sum: { amount: true },
+      where: {
+        date: {
+          gte: new Date(currentYear, 0, 1),
+          lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Get all unique categories
+    const categories = [...new Set(expenseData.map(item => item.category))];
+
+    // Month colors
+    const monthColors = [
+      'rgb(20,97,103)', 'rgb(45,179,190)', 'rgb(121,90,128)', 'rgb(189,121,202)',
+      'rgb(120,97,57)', 'rgb(177,142,79)', 'rgb(60,148,156)', 'rgb(158,138,142)',
+      'rgb(186,143,153)', 'rgb(176,183,183)', 'rgb(79,64,59)', 'rgb(157,131,124)'
+    ];
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Create datasets for each month
+    const datasets = [];
+
+    for (let month = 0; month < 12; month++) {
+      const data = categories.map(category => {
+        const monthExpense = expenseData.find(item =>
+          item.category === category && item.date.getMonth() === month
+        );
+        return monthExpense?._sum.amount || 0;
+      });
+
+      datasets.push({
+        label: monthNames[month],
+        data,
+        backgroundColor: monthColors[month],
+      });
+    }
+
+    return { categories, datasets };
+  }
+
+  /**
    * Get monthly revenue data for the last 12 months
    */
   private async getMonthlyRevenueData(): Promise<{ month: string; revenue: number; profit: number }[]> {

@@ -352,6 +352,19 @@ class FinancialService {
   }
 
   /**
+   * Delete expense
+   */
+  async deleteExpense(id: number): Promise<boolean> {
+    try {
+      const response = await ApiService.delete(`${this.baseEndpoint}/expenses/${id}`);
+      return response.success;
+    } catch (error) {
+      console.error('Failed to delete expense:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get financial summary
    */
   async getFinancialSummary(): Promise<{

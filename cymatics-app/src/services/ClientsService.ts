@@ -284,6 +284,24 @@ class ClientsService {
       return null;
     }
   }
+
+  /**
+   * Get projects for a specific client
+   */
+  async getClientProjects(clientId: number): Promise<ClientProject[] | null> {
+    try {
+      const response = await ApiService.get<ClientProject[]>(`${this.baseEndpoint}/${clientId}/projects`);
+
+      if (response.success && response.data) {
+        return Array.isArray(response.data) ? response.data : [];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch client projects:', error);
+      return null;
+    }
+  }
 }
 
 // Export singleton instance

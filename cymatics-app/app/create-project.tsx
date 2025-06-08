@@ -58,6 +58,11 @@ export default function CreateProjectScreen() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [selectedCoordinates, setSelectedCoordinates] = useState<Coordinates | null>(null);
 
+  // Location autocomplete state
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isLoadingLocationSuggestions, setIsLoadingLocationSuggestions] = useState(false);
+
   // Load clients for dropdown
   useEffect(() => {
     loadClients();
@@ -246,6 +251,98 @@ export default function CreateProjectScreen() {
     return 'Select location on map';
   };
 
+  // Handle location input change with autocomplete
+  const handleLocationInputChange = async (text: string) => {
+    updateFormData('location', text);
+
+    if (text.length > 2) {
+      setIsLoadingLocationSuggestions(true);
+      setShowLocationSuggestions(true);
+
+      try {
+        // Generate location suggestions based on input
+        const suggestions = generateLocationSuggestions(text);
+        setLocationSuggestions(suggestions);
+      } catch (error) {
+        console.error('Error generating location suggestions:', error);
+        setLocationSuggestions([]);
+      } finally {
+        setIsLoadingLocationSuggestions(false);
+      }
+    } else {
+      setShowLocationSuggestions(false);
+      setLocationSuggestions([]);
+    }
+  };
+
+  // Generate location suggestions (mock implementation - can be replaced with real API)
+  const generateLocationSuggestions = (input: string): string[] => {
+    const commonLocations = [
+      'New York, NY, USA',
+      'Los Angeles, CA, USA',
+      'Chicago, IL, USA',
+      'Houston, TX, USA',
+      'Phoenix, AZ, USA',
+      'Philadelphia, PA, USA',
+      'San Antonio, TX, USA',
+      'San Diego, CA, USA',
+      'Dallas, TX, USA',
+      'San Jose, CA, USA',
+      'Austin, TX, USA',
+      'Jacksonville, FL, USA',
+      'Fort Worth, TX, USA',
+      'Columbus, OH, USA',
+      'Charlotte, NC, USA',
+      'San Francisco, CA, USA',
+      'Indianapolis, IN, USA',
+      'Seattle, WA, USA',
+      'Denver, CO, USA',
+      'Washington, DC, USA',
+      'Boston, MA, USA',
+      'El Paso, TX, USA',
+      'Nashville, TN, USA',
+      'Detroit, MI, USA',
+      'Oklahoma City, OK, USA',
+      'Portland, OR, USA',
+      'Las Vegas, NV, USA',
+      'Memphis, TN, USA',
+      'Louisville, KY, USA',
+      'Baltimore, MD, USA',
+      'Milwaukee, WI, USA',
+      'Albuquerque, NM, USA',
+      'Tucson, AZ, USA',
+      'Fresno, CA, USA',
+      'Sacramento, CA, USA',
+      'Mesa, AZ, USA',
+      'Kansas City, MO, USA',
+      'Atlanta, GA, USA',
+      'Long Beach, CA, USA',
+      'Colorado Springs, CO, USA',
+      'Raleigh, NC, USA',
+      'Miami, FL, USA',
+      'Virginia Beach, VA, USA',
+      'Omaha, NE, USA',
+      'Oakland, CA, USA',
+      'Minneapolis, MN, USA',
+      'Tulsa, OK, USA',
+      'Arlington, TX, USA',
+      'Tampa, FL, USA',
+      'New Orleans, LA, USA',
+    ];
+
+    const inputLower = input.toLowerCase();
+    return commonLocations
+      .filter(location => location.toLowerCase().includes(inputLower))
+      .slice(0, 5); // Limit to 5 suggestions
+  };
+
+  // Handle location suggestion selection
+  const handleLocationSuggestionSelect = (suggestion: string) => {
+    updateFormData('location', suggestion);
+    setShowLocationSuggestions(false);
+    setLocationSuggestions([]);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar
@@ -263,80 +360,80 @@ export default function CreateProjectScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Basic Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Project Name *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Project Name *</Text>
             <TextInput
-              style={[styles.textInput, errors.name && styles.inputError]}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.name && styles.inputError]}
               value={formData.name}
               onChangeText={(value) => updateFormData('name', value)}
               placeholder="Enter project name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
-            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+            {errors.name && <Text style={[styles.errorText, { color: colors.error }]}>{errors.name}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Company</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Company</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               value={formData.company}
               onChangeText={(value) => updateFormData('company', value)}
               placeholder="Enter company name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Project Type</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Project Type</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               value={formData.type}
               onChangeText={(value) => updateFormData('type', value)}
               placeholder="e.g., Wedding, Corporate, Event"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Client *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Client *</Text>
             {isLoadingClients ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000" />
-                <Text style={styles.loadingText}>Loading clients...</Text>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.muted }]}>Loading clients...</Text>
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.dropdownButton, errors.clientId && styles.inputError]}
+                style={[styles.dropdownButton, { backgroundColor: colors.surface, borderColor: colors.border }, errors.clientId && styles.inputError]}
                 onPress={() => setShowClientDropdown(!showClientDropdown)}
               >
-                <Text style={[styles.dropdownText, formData.clientId === 0 && styles.placeholderText]}>
+                <Text style={[styles.dropdownText, { color: colors.text }, formData.clientId === 0 && { color: colors.placeholder }]}>
                   {getSelectedClientName()}
                 </Text>
                 <MaterialIcons
                   name={showClientDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
                   size={24}
-                  color="#666"
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             )}
-            {errors.clientId && <Text style={styles.errorText}>{errors.clientId}</Text>}
+            {errors.clientId && <Text style={[styles.errorText, { color: colors.error }]}>{errors.clientId}</Text>}
 
             {showClientDropdown && (
-              <View style={styles.dropdown}>
+              <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
                   {/* Create New Client Option */}
                   <TouchableOpacity
-                    style={[styles.dropdownItem, styles.createClientItem]}
+                    style={[styles.dropdownItem, { backgroundColor: colors.surface, borderBottomColor: colors.primary }]}
                     onPress={() => {
                       setShowClientDropdown(false);
                       router.push('/create-client');
                     }}
                   >
-                    <MaterialIcons name="add" size={20} color="#007AFF" />
-                    <Text style={[styles.dropdownItemText, styles.createClientText]}>
+                    <MaterialIcons name="add" size={20} color={colors.primary} />
+                    <Text style={[styles.dropdownItemText, { color: colors.primary, fontWeight: '600' }]}>
                       Create New Client
                     </Text>
                   </TouchableOpacity>
@@ -345,13 +442,13 @@ export default function CreateProjectScreen() {
                   {(clients || []).map((client) => (
                     <TouchableOpacity
                       key={client.id}
-                      style={styles.dropdownItem}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         updateFormData('clientId', client.id);
                         setShowClientDropdown(false);
                       }}
                     >
-                      <Text style={styles.dropdownItemText}>
+                      <Text style={[styles.dropdownItemText, { color: colors.text }]}>
                         {client.name} ({client.company})
                       </Text>
                     </TouchableOpacity>
@@ -360,7 +457,7 @@ export default function CreateProjectScreen() {
                   {/* Empty state */}
                   {(!clients || clients.length === 0) && (
                     <View style={styles.emptyDropdownState}>
-                      <Text style={styles.emptyDropdownText}>
+                      <Text style={[styles.emptyDropdownText, { color: colors.muted }]}>
                         No clients found. Create your first client above.
                       </Text>
                     </View>
@@ -372,20 +469,20 @@ export default function CreateProjectScreen() {
         </View>
 
         {/* Project Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Project Details</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Project Details</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Amount ($)</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($)</Text>
             <TextInput
-              style={[styles.textInput, errors.amount && styles.inputError]}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.amount && styles.inputError]}
               value={formData.amount.toString()}
               onChangeText={(value) => updateFormData('amount', value)}
               placeholder="0"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               keyboardType="numeric"
             />
-            {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+            {errors.amount && <Text style={[styles.errorText, { color: colors.error }]}>{errors.amount}</Text>}
           </View>
 
           <DatePicker
@@ -404,26 +501,64 @@ export default function CreateProjectScreen() {
           />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Location</Text>
-            <TouchableOpacity
-              style={styles.locationPickerButton}
-              onPress={() => setShowLocationPicker(true)}
-            >
-              <View style={styles.locationPickerContent}>
-                <MaterialIcons name="place" size={20} color="#666" />
-                <Text style={[
-                  styles.locationPickerText,
-                  !formData.location && !selectedCoordinates && styles.placeholderText
-                ]}>
-                  {getLocationDisplayText()}
-                </Text>
-                <MaterialIcons name="keyboard-arrow-right" size={20} color="#666" />
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Location</Text>
+            <View style={styles.locationInputContainer}>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                value={formData.location}
+                onChangeText={handleLocationInputChange}
+                placeholder="Start typing location..."
+                placeholderTextColor={colors.placeholder}
+                onFocus={() => {
+                  if (formData.location && formData.location.length > 2) {
+                    setShowLocationSuggestions(true);
+                  }
+                }}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow for selection
+                  setTimeout(() => setShowLocationSuggestions(false), 200);
+                }}
+              />
+              <TouchableOpacity
+                style={[styles.mapPickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => setShowLocationPicker(true)}
+              >
+                <MaterialIcons name="map" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Location Suggestions Dropdown */}
+            {showLocationSuggestions && (
+              <View style={[styles.suggestionsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {isLoadingLocationSuggestions ? (
+                  <View style={styles.suggestionLoadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.suggestionLoadingText, { color: colors.muted }]}>Loading suggestions...</Text>
+                  </View>
+                ) : locationSuggestions.length > 0 ? (
+                  <ScrollView style={styles.suggestionsScroll} nestedScrollEnabled>
+                    {locationSuggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[styles.suggestionItem, { borderBottomColor: colors.border }]}
+                        onPress={() => handleLocationSuggestionSelect(suggestion)}
+                      >
+                        <MaterialIcons name="place" size={16} color={colors.muted} />
+                        <Text style={[styles.suggestionText, { color: colors.text }]}>{suggestion}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.noSuggestionsContainer}>
+                    <Text style={[styles.noSuggestionsText, { color: colors.muted }]}>No suggestions found</Text>
+                  </View>
+                )}
               </View>
-            </TouchableOpacity>
+            )}
 
             {selectedCoordinates && (
               <View style={styles.coordinatesInfo}>
-                <Text style={styles.coordinatesText}>
+                <Text style={[styles.coordinatesText, { color: colors.muted }]}>
                   📍 {MapsService.formatCoordinates(selectedCoordinates.latitude, selectedCoordinates.longitude)}
                 </Text>
               </View>
@@ -431,86 +566,94 @@ export default function CreateProjectScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Address</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               value={formData.address}
               onChangeText={(value) => updateFormData('address', value)}
               placeholder="Enter full address or use location picker above"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={3}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Reference</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Reference</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               value={formData.reference}
               onChangeText={(value) => updateFormData('reference', value)}
               placeholder="Enter reference details"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
           </View>
         </View>
 
         {/* Outsourcing Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.switchRow}>
-            <Text style={styles.sectionTitle}>Outsourcing</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Outsourcing</Text>
             <Switch
               value={formData.outsourcing}
               onValueChange={(value) => updateFormData('outsourcing', value)}
-              trackColor={{ false: '#e0e0e0', true: '#000' }}
-              thumbColor="#fff"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={
+                formData.outsourcing
+                  ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                  : (colors.background === '#000000' ? '#888888' : '#666666')
+              }
             />
           </View>
 
           {formData.outsourcing && (
             <>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourcing Amount ($)</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Amount ($)</Text>
                 <TextInput
-                  style={[styles.textInput, errors.outsourcingAmt && styles.inputError]}
+                  style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.outsourcingAmt && styles.inputError]}
                   value={formData.outsourcingAmt.toString()}
                   onChangeText={(value) => updateFormData('outsourcingAmt', value)}
                   placeholder="0"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                   keyboardType="numeric"
                 />
-                {errors.outsourcingAmt && <Text style={styles.errorText}>{errors.outsourcingAmt}</Text>}
+                {errors.outsourcingAmt && <Text style={[styles.errorText, { color: colors.error }]}>{errors.outsourcingAmt}</Text>}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourced For</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourced For</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   value={formData.outFor}
                   onChangeText={(value) => updateFormData('outFor', value)}
                   placeholder="e.g., Photography, Videography"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Outsourcing Client</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Client</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   value={formData.outClient}
                   onChangeText={(value) => updateFormData('outClient', value)}
                   placeholder="Enter outsourcing client name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
 
               <View style={styles.switchRow}>
-                <Text style={styles.inputLabel}>Outsourcing Paid</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Outsourcing Paid</Text>
                 <Switch
                   value={formData.outsourcingPaid}
                   onValueChange={(value) => updateFormData('outsourcingPaid', value)}
-                  trackColor={{ false: '#e0e0e0', true: '#000' }}
-                  thumbColor="#fff"
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={
+                    formData.outsourcingPaid
+                      ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                      : (colors.background === '#000000' ? '#888888' : '#666666')
+                  }
                 />
               </View>
             </>
@@ -522,16 +665,16 @@ export default function CreateProjectScreen() {
       </ScrollView>
 
       {/* Bottom Save Button */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={[styles.bottomButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
         <TouchableOpacity
           onPress={handleSubmit}
-          style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+          style={[styles.bottomSaveButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.background} />
           ) : (
-            <Text style={styles.saveButtonText}>Save Project</Text>
+            <Text style={[styles.saveButtonText, { color: colors.background }]}>Save Project</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -551,16 +694,13 @@ export default function CreateProjectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
@@ -568,19 +708,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
     marginLeft: 15,
   },
   bottomButtonContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   bottomSaveButton: {
-    backgroundColor: '#000',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -590,7 +726,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -598,7 +733,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 12,
@@ -607,7 +741,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 20,
   },
   inputGroup: {
@@ -616,24 +749,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000',
-    backgroundColor: '#fff',
   },
   inputError: {
     borderColor: '#dc3545',
   },
   errorText: {
-    color: '#dc3545',
     fontSize: 14,
     marginTop: 5,
   },
@@ -747,5 +875,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontFamily: 'monospace',
+  },
+  // Location Autocomplete Styles
+  locationInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mapPickerButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionsContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 5,
+    maxHeight: 200,
+    backgroundColor: '#fff',
+  },
+  suggestionsScroll: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionText: {
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
+  suggestionLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+  },
+  suggestionLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  noSuggestionsContainer: {
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  noSuggestionsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
   },
 });

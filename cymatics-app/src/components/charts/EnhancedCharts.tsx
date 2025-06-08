@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const chartWidth = screenWidth - 40;
@@ -32,21 +33,31 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
   projectData,
   expenseData,
 }) => {
+  const { colors } = useTheme();
+
+  // Helper function to convert hex to rgba
+  const hexToRgba = (hex: string, opacity: number = 1) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+
   // Chart configuration
   const chartConfig = {
-    backgroundColor: '#ffffff',
-    backgroundGradientFrom: '#ffffff',
-    backgroundGradientTo: '#ffffff',
+    backgroundColor: colors.card,
+    backgroundGradientFrom: colors.card,
+    backgroundGradientTo: colors.card,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(66, 133, 244, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(102, 102, 102, ${opacity})`,
+    color: (opacity = 1) => hexToRgba(colors.primary, opacity),
+    labelColor: (opacity = 1) => hexToRgba(colors.muted, opacity),
     style: {
       borderRadius: 16,
     },
     propsForDots: {
       r: '6',
       strokeWidth: '2',
-      stroke: '#4285F4',
+      stroke: colors.primary,
     },
   };
 
@@ -61,12 +72,12 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       datasets: [
         {
           data: incomeValues,
-          color: (opacity = 1) => `rgba(66, 133, 244, ${opacity})`, // Income - Blue
+          color: (opacity = 1) => hexToRgba(colors.primary, opacity), // Income - Primary
           strokeWidth: 2,
         },
         {
           data: expenseValues,
-          color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`, // Expense - Red
+          color: (opacity = 1) => hexToRgba(colors.error || '#ff6b6b', opacity), // Expense - Error
           strokeWidth: 2,
         },
       ],
@@ -83,7 +94,7 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       datasets: [
         {
           data: values,
-          color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+          color: (opacity = 1) => hexToRgba(colors.error || '#ff6b6b', opacity),
           strokeWidth: 2,
         },
       ],
@@ -96,19 +107,19 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
         {
           name: 'No Data',
           population: 1,
-          color: '#E0E0E0',
-          legendFontColor: '#666',
+          color: colors.border,
+          legendFontColor: colors.muted,
           legendFontSize: 12,
         },
       ];
     }
 
-    const colors = ['#4285F4', '#34A853', '#FBBC04', '#EA4335', '#9C27B0', '#FF6B6B'];
+    const chartColors = [colors.primary, colors.success, colors.warning, colors.error, colors.info, colors.secondary];
     return data.map((item, index) => ({
       name: item.label || `Item ${index + 1}`,
       population: item.value,
-      color: item.color || colors[index % colors.length],
-      legendFontColor: '#666',
+      color: item.color || chartColors[index % chartColors.length],
+      legendFontColor: colors.muted,
       legendFontSize: 12,
     }));
   };
@@ -116,8 +127,8 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
   return (
     <View style={styles.container}>
       {/* Income vs Expense Chart */}
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Income vs Expense</Text>
+      <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
+        <Text style={[styles.chartTitle, { color: colors.text }]}>Income vs Expense</Text>
         <View style={styles.chartWrapper}>
           <BarChart
             data={transformDataForBarChart(incomeExpenseData?.income, incomeExpenseData?.expense)}
@@ -136,8 +147,8 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       </View>
 
       {/* Project Status Pie Chart */}
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Project Status Distribution</Text>
+      <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
+        <Text style={[styles.chartTitle, { color: colors.text }]}>Project Status Distribution</Text>
         <View style={styles.pieChartWrapper}>
           <PieChart
             data={transformDataForPieChart(projectData?.byStatus)}
@@ -158,8 +169,8 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       </View>
 
       {/* Expense Trends Line Chart */}
-      <View style={styles.chartContainer}>
-        <Text style={styles.chartTitle}>Expense Trends</Text>
+      <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
+        <Text style={[styles.chartTitle, { color: colors.text }]}>Expense Trends</Text>
         <View style={styles.chartWrapper}>
           <LineChart
             data={transformDataForLineChart(expenseData?.trends)}
@@ -167,7 +178,7 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
             height={220}
             chartConfig={{
               ...chartConfig,
-              color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+              color: (opacity = 1) => hexToRgba(colors.error || '#ff6b6b', opacity),
             }}
             bezier
             style={{
@@ -191,7 +202,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   chartContainer: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -207,7 +217,6 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 15,
     textAlign: 'center',
   },

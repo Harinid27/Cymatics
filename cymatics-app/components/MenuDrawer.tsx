@@ -37,6 +37,8 @@ const menuItems: MenuItem[] = [
   { id: 'expense', title: 'Expense', icon: 'attach-money', route: '/(tabs)/expense' },
   { id: 'status', title: 'Status', icon: 'donut-large', route: '/status' },
   { id: 'clients', title: 'Clients', icon: 'people', route: '/clients' },
+  { id: 'assets', title: 'Assets', icon: 'inventory', route: '/assets' },
+  { id: 'entertainment', title: 'Entertainment', icon: 'movie', route: '/entertainment' },
   { id: 'pending', title: 'Pending Payments', icon: 'access-time', route: '/pending-payments' },
   { id: 'calendar', title: 'Calendar', icon: 'event', route: '/(tabs)/calendar' },
   { id: 'budget', title: 'Budget', icon: 'account-balance-wallet', route: '/budget' },

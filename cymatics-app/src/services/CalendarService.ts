@@ -31,11 +31,12 @@ export interface ProjectEvent {
 export interface CalendarEventData {
   id: number;
   title: string;
-  type: 'project' | 'calendar' | 'income' | 'expense' | 'entertainment';
+  type: 'project' | 'calendar' | 'income' | 'expense' | 'entertainment' | 'project-start' | 'project-end';
   startDate: Date;
   endDate?: Date;
   color: string;
   projectCode?: string;
+  projectId?: number;
   amount?: number;
   location?: string;
   description?: string;
@@ -155,19 +156,32 @@ class CalendarService {
         // Safely extract projects array
         const projects = Array.isArray(response.data.projects) ? response.data.projects : [];
 
-        // Filter projects that have valid shoot dates within the range
+        // Filter projects that have valid shoot dates that overlap with the range
         return projects.filter(project => {
           if (!project || !project.shootStartDate) {
             return false;
           }
 
           try {
-            const shootDate = new Date(project.shootStartDate);
-            if (isNaN(shootDate.getTime())) {
+            const shootStartDate = new Date(project.shootStartDate);
+            if (isNaN(shootStartDate.getTime())) {
               return false;
             }
 
-            return shootDate >= startDate && shootDate <= endDate;
+            // Check if project start date is in the range
+            const startInRange = shootStartDate >= startDate && shootStartDate <= endDate;
+
+            // Check if project end date is in the range (if it exists)
+            let endInRange = false;
+            if (project.shootEndDate) {
+              const shootEndDate = new Date(project.shootEndDate);
+              if (!isNaN(shootEndDate.getTime())) {
+                endInRange = shootEndDate >= startDate && shootEndDate <= endDate;
+              }
+            }
+
+            // Include project if either start or end date is in the range
+            return startInRange || endInRange;
           } catch (error) {
             console.warn('Invalid shoot date for project:', project.id, project.shootStartDate);
             return false;
@@ -222,6 +236,24 @@ class CalendarService {
 
       console.log(`Found ${calendarEvents.length} calendar events and ${projectEvents.length} project events`);
 
+      // Debug: Log project events details
+      if (projectEvents.length > 0) {
+        console.log('Project events details:');
+        projectEvents.forEach((project, index) => {
+          console.log(`  Project ${index + 1}:`, {
+            id: project.id,
+            name: project.name,
+            code: project.code,
+            shootStartDate: project.shootStartDate,
+            shootEndDate: project.shootEndDate,
+            hasStartDate: !!project.shootStartDate,
+            hasEndDate: !!project.shootEndDate
+          });
+        });
+      } else {
+        console.log('No project events found for this month');
+      }
+
       // Combine and organize events by date
       const dayEvents: DayEvents = {};
 
@@ -261,44 +293,75 @@ class CalendarService {
         });
       }
 
-      // Add project events
+      // Add project events (separate start and end dates)
       if (Array.isArray(projectEvents) && projectEvents.length > 0) {
-        projectEvents.forEach(project => {
+        console.log(`Processing ${projectEvents.length} project events for calendar display`);
+        projectEvents.forEach((project, index) => {
           try {
             if (!project || !project.shootStartDate) {
               console.warn('Invalid project event:', project);
               return;
             }
 
-            const eventDate = new Date(project.shootStartDate);
-            if (isNaN(eventDate.getTime())) {
-              console.warn('Invalid project shoot date:', project.shootStartDate);
-              return;
-            }
-
-            const dateKey = eventDate.toISOString().split('T')[0];
-
-            if (!dayEvents[dateKey]) {
-              dayEvents[dateKey] = [];
-            }
-
             // Safely extract project data with fallbacks
             const projectName = project.name || 'Untitled Project';
             const projectType = project.type || 'Unknown';
             const clientCompany = project.client?.company || 'Unknown Client';
+            const projectCode = project.code || 'N/A';
 
-            dayEvents[dateKey].push({
-              id: project.id || Math.random(),
-              title: projectName,
-              type: 'project',
-              startDate: eventDate,
-              endDate: project.shootEndDate ? new Date(project.shootEndDate) : undefined,
-              color: this.getProjectColor(projectType),
-              projectCode: project.code || 'N/A',
-              amount: project.amount || 0,
-              location: project.location || '',
-              description: `${projectType} - ${clientCompany}`,
-            });
+            console.log(`Processing project ${index + 1}: ${projectName} (${projectCode})`);
+            console.log(`  Start Date: ${project.shootStartDate}`);
+            console.log(`  End Date: ${project.shootEndDate}`);
+
+            // Add project start date event
+            const startDate = new Date(project.shootStartDate);
+            if (!isNaN(startDate.getTime())) {
+              const startDateKey = startDate.toISOString().split('T')[0];
+
+              if (!dayEvents[startDateKey]) {
+                dayEvents[startDateKey] = [];
+              }
+
+              dayEvents[startDateKey].push({
+                id: project.id || Math.random(),
+                title: `${projectCode} Start`,
+                type: 'project-start',
+                startDate: startDate,
+                endDate: undefined,
+                color: '#4CAF50', // Green for start dates
+                projectCode: projectCode,
+                projectId: project.id,
+                amount: project.amount || 0,
+                location: project.location || '',
+                description: `${projectName} - Start Date`,
+              });
+            }
+
+            // Add project end date event (if exists)
+            if (project.shootEndDate) {
+              const endDate = new Date(project.shootEndDate);
+              if (!isNaN(endDate.getTime())) {
+                const endDateKey = endDate.toISOString().split('T')[0];
+
+                if (!dayEvents[endDateKey]) {
+                  dayEvents[endDateKey] = [];
+                }
+
+                dayEvents[endDateKey].push({
+                  id: (project.id || Math.random()) + 0.1, // Slightly different ID for end date
+                  title: `${projectCode} End`,
+                  type: 'project-end',
+                  startDate: endDate,
+                  endDate: undefined,
+                  color: '#F44336', // Red for end dates
+                  projectCode: projectCode,
+                  projectId: project.id,
+                  amount: project.amount || 0,
+                  location: project.location || '',
+                  description: `${projectName} - End Date`,
+                });
+              }
+            }
           } catch (error) {
             console.warn('Error processing project event:', project, error);
           }

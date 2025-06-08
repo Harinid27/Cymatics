@@ -23,6 +23,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import CustomHeader from '@/src/components/CustomHeader';
+import ClientDetailModal from '@/src/components/modals/ClientDetailModal';
 
 export default function ClientsScreen() {
   const { colors } = useTheme();
@@ -34,6 +35,8 @@ export default function ClientsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isClientDetailModalVisible, setIsClientDetailModalVisible] = useState(false);
 
   useEffect(() => {
     loadClients();
@@ -135,37 +138,67 @@ export default function ClientsScreen() {
     router.push(`/edit-client?id=${client.id}`);
   };
 
-  const handleClientPress = (client: Client) => {
-    // Navigate to client details screen (to be implemented)
+  const handleDeletePress = (client: Client) => {
     Alert.alert(
-      'Client Details',
-      `View details for ${client.name}?`,
+      'Delete Client',
+      `Are you sure you want to delete "${client.name}" from ${client.company}? This action cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'View',
-          onPress: () => {
-            // TODO: Navigate to client details screen
-            console.log('View client details:', client.id);
-          }
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const success = await ClientsService.deleteClient(client.id);
+
+              if (success) {
+                // Remove the client from local state
+                const updatedClients = clients.filter(c => c.id !== client.id);
+                setClients(updatedClients);
+
+                Alert.alert('Success', 'Client deleted successfully');
+              } else {
+                Alert.alert('Error', 'Failed to delete client. Please try again.');
+              }
+            } catch (error) {
+              console.error('Delete client error:', error);
+              Alert.alert('Error', 'Failed to delete client. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
         },
       ]
     );
   };
 
+  const handleClientPress = (client: Client) => {
+    setSelectedClient(client);
+    setIsClientDetailModalVisible(true);
+  };
+
+  const closeClientDetailModal = () => {
+    setIsClientDetailModalVisible(false);
+    setSelectedClient(null);
+  };
+
   const renderClientItem = ({ item }: { item: Client }) => (
     <TouchableOpacity
-      style={styles.clientCard}
+      style={[styles.clientCard, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}
       onPress={() => handleClientPress(item)}
       activeOpacity={0.7}
     >
       <View style={styles.clientInfo}>
-        <Text style={styles.clientName}>
+        <Text style={[styles.clientName, { color: colors.text }]}>
           {item.company} ({item.projectCount || 0})
         </Text>
-        <Text style={styles.clientSubtitle}>{item.name}</Text>
+        <Text style={[styles.clientSubtitle, { color: colors.muted }]}>{item.name}</Text>
         {item.email && (
-          <Text style={styles.clientEmail}>{item.email}</Text>
+          <Text style={[styles.clientEmail, { color: colors.placeholder }]}>{item.email}</Text>
         )}
       </View>
       <View style={styles.actionButtons}>
@@ -176,7 +209,7 @@ export default function ClientsScreen() {
             handleSharePress(item);
           }}
         >
-          <MaterialIcons name="share" size={20} color="#000" />
+          <MaterialIcons name="share" size={20} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
@@ -185,7 +218,7 @@ export default function ClientsScreen() {
             handleCallPress(item);
           }}
         >
-          <MaterialIcons name="phone" size={20} color="#000" />
+          <MaterialIcons name="phone" size={20} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
@@ -194,7 +227,16 @@ export default function ClientsScreen() {
             handleEditPress(item);
           }}
         >
-          <MaterialIcons name="edit" size={20} color="#000" />
+          <MaterialIcons name="edit" size={20} color={colors.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeletePress(item);
+          }}
+        >
+          <MaterialIcons name="delete" size={20} color="#F44336" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -202,9 +244,9 @@ export default function ClientsScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <MaterialIcons name="people-outline" size={64} color="#ccc" />
-      <Text style={styles.emptyStateTitle}>No Clients Found</Text>
-      <Text style={styles.emptyStateText}>
+      <MaterialIcons name="people-outline" size={64} color={colors.muted} />
+      <Text style={[styles.emptyStateTitle, { color: colors.muted }]}>No Clients Found</Text>
+      <Text style={[styles.emptyStateText, { color: colors.placeholder }]}>
         {searchQuery ? 'Try adjusting your search terms' : 'Add your first client to get started'}
       </Text>
     </View>
@@ -212,17 +254,17 @@ export default function ClientsScreen() {
 
   const renderErrorState = () => (
     <View style={styles.errorState}>
-      <MaterialIcons name="error-outline" size={64} color="#ff4444" />
-      <Text style={styles.errorStateTitle}>Failed to Load Clients</Text>
-      <Text style={styles.errorStateText}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={() => loadClients()}>
-        <Text style={styles.retryButtonText}>Retry</Text>
+      <MaterialIcons name="error-outline" size={64} color={colors.error || '#ff4444'} />
+      <Text style={[styles.errorStateTitle, { color: colors.error || '#ff4444' }]}>Failed to Load Clients</Text>
+      <Text style={[styles.errorStateText, { color: colors.muted }]}>{error}</Text>
+      <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadClients()}>
+        <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CustomHeader
         title="Clients"
         subtitle={`${(clients || []).length} client${(clients || []).length !== 1 ? 's' : ''}`}
@@ -231,26 +273,27 @@ export default function ClientsScreen() {
       />
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <MaterialIcons name="search" size={20} color={colors.muted} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search clients..."
+            placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={handleSearch}
             returnKeyType="search"
             onSubmitEditing={() => handleSearch(searchQuery)}
           />
           {isSearching && (
-            <ActivityIndicator size="small" color="#999" style={styles.searchLoader} />
+            <ActivityIndicator size="small" color={colors.primary} style={styles.searchLoader} />
           )}
           {searchQuery.length > 0 && (
             <TouchableOpacity
               onPress={() => handleSearch('')}
               style={styles.clearSearchButton}
             >
-              <MaterialIcons name="clear" size={20} color="#999" />
+              <MaterialIcons name="clear" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}
         </View>
@@ -259,8 +302,8 @@ export default function ClientsScreen() {
       {/* Content */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Loading clients...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.muted }]}>Loading clients...</Text>
         </View>
       ) : error ? (
         renderErrorState()
@@ -278,8 +321,8 @@ export default function ClientsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              colors={['#000']}
-              tintColor="#000"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
         />
@@ -287,12 +330,21 @@ export default function ClientsScreen() {
 
       {/* Floating Add Button */}
       <TouchableOpacity
-        style={styles.floatingButton}
+        style={[styles.floatingButton, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/create-client')}
         activeOpacity={0.8}
       >
-        <MaterialIcons name="add" size={24} color="#fff" />
+        <MaterialIcons name="add" size={24} color={colors.background} />
       </TouchableOpacity>
+
+      {/* Client Detail Modal */}
+      <ClientDetailModal
+        visible={isClientDetailModalVisible}
+        client={selectedClient}
+        onClose={closeClientDetailModal}
+        onEdit={handleEditPress}
+        onDelete={handleDeletePress}
+      />
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
@@ -349,18 +401,16 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f8f8f8',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   searchIcon: {
     marginRight: 8,

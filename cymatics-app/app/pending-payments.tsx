@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { paymentsService, Payment, PaymentStats } from '@/src/services/PaymentsService';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -152,6 +153,14 @@ export default function PendingPaymentsScreen() {
     loadStats();
   }, []);
 
+  // Refresh data when screen comes into focus (e.g., returning from create screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPayments();
+      loadStats();
+    }, [])
+  );
+
   // Format currency
   const formatCurrency = (amount: number): string => {
     return `$${amount.toLocaleString()}`;
@@ -213,18 +222,18 @@ export default function PendingPaymentsScreen() {
 
       {/* Statistics Summary */}
       {stats && (
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.totalPayments}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stats.totalPayments}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Total</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatCurrency(stats.totalAmount)}</Text>
-            <Text style={styles.statLabel}>Amount</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{formatCurrency(stats.totalAmount)}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Amount</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.pendingPayments}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{stats.pendingPayments}</Text>
+            <Text style={[styles.statLabel, { color: colors.muted }]}>Pending</Text>
           </View>
         </View>
       )}
@@ -238,10 +247,10 @@ export default function PendingPaymentsScreen() {
         ].map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+            style={[styles.tab, { backgroundColor: colors.surface }, activeTab === tab.key && { backgroundColor: colors.primary }]}
             onPress={() => handleTabChange(tab.key as 'ongoing' | 'pending' | 'completed')}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
+            <Text style={[styles.tabText, { color: colors.muted }, activeTab === tab.key && { color: colors.background }]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -251,14 +260,14 @@ export default function PendingPaymentsScreen() {
       {/* Payment List */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Loading payments...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.muted }]}>Loading payments...</Text>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => loadPayments()}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={[styles.errorText, { color: colors.error || '#ff6b6b' }]}>{error}</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadPayments()}>
+            <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -270,8 +279,8 @@ export default function PendingPaymentsScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              colors={['#000']}
-              tintColor="#000"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
         >
@@ -279,9 +288,9 @@ export default function PendingPaymentsScreen() {
             payments.map(renderPaymentItem)
           ) : (
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="payment" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>No {activeTab} payments found</Text>
-              <Text style={styles.emptySubtext}>
+              <MaterialIcons name="payment" size={64} color={colors.muted} />
+              <Text style={[styles.emptyText, { color: colors.muted }]}>No {activeTab} payments found</Text>
+              <Text style={[styles.emptySubtext, { color: colors.placeholder }]}>
                 {activeTab === 'pending'
                   ? 'All payments are up to date!'
                   : `No ${activeTab} payments at the moment.`}
@@ -291,6 +300,15 @@ export default function PendingPaymentsScreen() {
         </ScrollView>
       )}
 
+      {/* Floating Add Button */}
+      <TouchableOpacity
+        style={[styles.floatingButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push('/create-payment')}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="add" size={24} color={colors.background} />
+      </TouchableOpacity>
+
       {/* Status Update Modal */}
       <Modal
         visible={isStatusModalVisible}
@@ -298,44 +316,46 @@ export default function PendingPaymentsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setIsStatusModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setIsStatusModalVisible(false)}>
-              <Text style={styles.modalCancelButton}>Cancel</Text>
+              <Text style={[styles.modalCancelButton, { color: colors.muted }]}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Update Payment Status</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Update Payment Status</Text>
             <TouchableOpacity onPress={handleStatusUpdate}>
-              <Text style={styles.modalSaveButton}>Save</Text>
+              <Text style={[styles.modalSaveButton, { color: colors.primary }]}>Save</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             {selectedPayment && (
               <>
-                <Text style={styles.modalPaymentName}>{selectedPayment.clientName}</Text>
-                <Text style={styles.modalPaymentAmount}>
+                <Text style={[styles.modalPaymentName, { color: colors.text }]}>{selectedPayment.clientName}</Text>
+                <Text style={[styles.modalPaymentAmount, { color: colors.error || '#dc3545' }]}>
                   {formatCurrency(selectedPayment.amount)}
                 </Text>
 
-                <Text style={styles.modalSectionTitle}>Payment Status</Text>
+                <Text style={[styles.modalSectionTitle, { color: colors.text }]}>Payment Status</Text>
 
                 {['ongoing', 'pending', 'completed'].map((status) => (
                   <TouchableOpacity
                     key={status}
                     style={[
                       styles.statusOption,
-                      newStatus === status && styles.selectedStatusOption
+                      { backgroundColor: colors.surface },
+                      newStatus === status && { backgroundColor: colors.primary }
                     ]}
                     onPress={() => setNewStatus(status as 'ongoing' | 'pending' | 'completed')}
                   >
                     <Text style={[
                       styles.statusOptionText,
-                      newStatus === status && styles.selectedStatusOptionText
+                      { color: colors.text },
+                      newStatus === status && { color: colors.background }
                     ]}>
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </Text>
                     {newStatus === status && (
-                      <MaterialIcons name="check" size={20} color="#fff" />
+                      <MaterialIcons name="check" size={20} color={colors.background} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -619,5 +639,24 @@ const styles = StyleSheet.create({
   },
   selectedStatusOptionText: {
     color: '#fff',
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });

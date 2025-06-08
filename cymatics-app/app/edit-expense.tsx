@@ -18,6 +18,7 @@ import financialService from '@/src/services/FinancialService';
 import projectsService, { Project } from '@/src/services/ProjectsService';
 import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Expense categories with icons (matching the expense screen)
 const EXPENSE_CATEGORIES = [
@@ -49,6 +50,7 @@ interface FormData {
 }
 
 export default function EditExpenseScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -244,26 +246,32 @@ export default function EditExpenseScreen() {
 
   if (isLoadingData) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar
+          barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+          backgroundColor={colors.background}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#dc3545" />
-          <Text style={styles.loadingText}>Loading expense data...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.muted }]}>Loading expense data...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Expense</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Expense</Text>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -372,8 +380,12 @@ export default function EditExpenseScreen() {
             <Switch
               value={formData.projectExpense}
               onValueChange={handleProjectExpenseToggle}
-              trackColor={{ false: '#e0e0e0', true: '#dc3545' }}
-              thumbColor="#fff"
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={
+                formData.projectExpense
+                  ? (colors.background === '#000000' ? '#e0e0e0' : '#333333')
+                  : (colors.background === '#000000' ? '#888888' : '#666666')
+              }
             />
           </View>
 
@@ -454,7 +466,6 @@ export default function EditExpenseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
@@ -464,16 +475,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
@@ -481,19 +489,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
     marginLeft: 15,
   },
   bottomButtonContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   bottomSaveButton: {
-    backgroundColor: '#dc3545',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -503,7 +507,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -511,7 +514,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 12,
@@ -520,7 +522,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 20,
   },
   inputGroup: {
@@ -529,18 +530,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#000',
-    backgroundColor: '#fff',
   },
   inputError: {
     borderColor: '#dc3545',
@@ -555,19 +552,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    backgroundColor: '#fff',
   },
   dropdownText: {
     fontSize: 16,
-    color: '#000',
     flex: 1,
   },
   placeholderText: {
-    color: '#999',
   },
   categoryRow: {
     flexDirection: 'row',
@@ -576,9 +569,7 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
     borderRadius: 8,
-    backgroundColor: '#fff',
     marginTop: 5,
     maxHeight: 200,
   },
@@ -589,17 +580,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   dropdownItemText: {
     fontSize: 16,
-    color: '#000',
     fontWeight: '500',
     marginLeft: 10,
   },
   dropdownItemSubtext: {
     fontSize: 14,
-    color: '#666',
     marginTop: 2,
   },
   switchRow: {

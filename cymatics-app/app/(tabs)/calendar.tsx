@@ -18,11 +18,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { calendarService, CalendarEventData, DayEvents } from '@/src/services/CalendarService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useRouter } from 'expo-router';
 
 // Use types from CalendarService
 
 export default function CalendarScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -41,9 +43,7 @@ export default function CalendarScreen() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [isEditingEvent, setIsEditingEvent] = useState(false);
 
-  // Search functionality
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredEvents, setFilteredEvents] = useState<DayEvents>({});
+
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -110,11 +110,19 @@ export default function CalendarScreen() {
     }
   };
 
-  // Handle event press - show event details
+  // Handle event press - navigate to project details if it's a project event
   const handleEventPress = (event: CalendarEventData) => {
     console.log('Event pressed:', event);
-    setSelectedEvent(event);
-    setIsEventDetailModalVisible(true);
+
+    // If it's a project event (start, end, or regular project event) with a project code, navigate to project details
+    if ((event.type === 'project-start' || event.type === 'project-end' || event.type === 'project') && event.projectCode) {
+      const projectId = event.projectId || event.id;
+      router.push(`/project-details?code=${event.projectCode}&id=${projectId}`);
+    } else {
+      // Otherwise show event details modal
+      setSelectedEvent(event);
+      setIsEventDetailModalVisible(true);
+    }
   };
 
   // Handle refresh
@@ -239,47 +247,14 @@ export default function CalendarScreen() {
     );
   };
 
-  // Search functionality
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
 
-    if (!query.trim()) {
-      setFilteredEvents(events);
-      return;
-    }
-
-    const filtered: DayEvents = {};
-    const lowerQuery = query.toLowerCase();
-
-    Object.keys(events).forEach(dateKey => {
-      const dayEvents = events[dateKey];
-      const matchingEvents = dayEvents.filter(event =>
-        event.title.toLowerCase().includes(lowerQuery) ||
-        event.description?.toLowerCase().includes(lowerQuery) ||
-        event.projectCode?.toLowerCase().includes(lowerQuery)
-      );
-
-      if (matchingEvents.length > 0) {
-        filtered[dateKey] = matchingEvents;
-      }
-    });
-
-    setFilteredEvents(filtered);
-  };
 
   // Load data on component mount
   useEffect(() => {
     loadCalendarData();
   }, []);
 
-  // Update filtered events when events change
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      handleSearch(searchQuery);
-    } else {
-      setFilteredEvents(events);
-    }
-  }, [events, searchQuery]);
+
 
   // Days of the week (starting with Monday like in the image)
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -378,7 +353,7 @@ export default function CalendarScreen() {
       }
 
       const dateKey = targetDate.toISOString().split('T')[0];
-      const eventsToUse = searchQuery.trim() ? filteredEvents : events;
+      const eventsToUse = events;
 
       if (!eventsToUse || typeof eventsToUse !== 'object') {
         return [];
@@ -442,13 +417,22 @@ export default function CalendarScreen() {
             <Text
               style={[
                 styles.dateText,
-                isTodayDate && styles.todayDateText,
-                isSelected && !isTodayDate && styles.selectedDateText,
+                { color: colors.text },
+                isTodayDate && { color: colors.background },
+                isSelected && !isTodayDate && {
+                  color: colors.primary,
+                  fontWeight: '600',
+                  backgroundColor: colors.surface,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  overflow: 'hidden'
+                },
               ]}
             >
               {date}
             </Text>
-            {isTodayDate && <View style={styles.todayIndicator} />}
+            {isTodayDate && <View style={[styles.todayIndicator, { backgroundColor: colors.primary }]} />}
           </View>
 
           {/* Events */}
@@ -458,7 +442,7 @@ export default function CalendarScreen() {
               return renderedChip;
             }).filter(Boolean)}
             {moreCount > 0 && (
-              <Text style={styles.moreEventsText}>+{moreCount} more</Text>
+              <Text style={[styles.moreEventsText, { color: colors.muted }]}>+{moreCount} more</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -484,22 +468,24 @@ export default function CalendarScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Calendar</Text>
       </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search events..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <MaterialIcons name="clear" size={20} color="#999" />
-            </TouchableOpacity>
-          )}
+
+
+      {/* Legend */}
+      <View style={[styles.legendContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.legendTitle, { color: colors.text }]}>Event Types:</Text>
+        <View style={styles.legendItems}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#4CAF50' }]} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>Project Start</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#F44336' }]} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>Project End</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#4ECDC4' }]} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>Calendar Events</Text>
+          </View>
         </View>
       </View>
 
@@ -516,29 +502,29 @@ export default function CalendarScreen() {
         }
       >
         {/* Month Navigation */}
-        <View style={styles.monthNavigation}>
-          <TouchableOpacity style={styles.navButton} onPress={handlePrevMonth}>
-            <MaterialIcons name="chevron-left" size={24} color="#000" />
+        <View style={[styles.monthNavigation, { backgroundColor: colors.background }]}>
+          <TouchableOpacity style={[styles.navButton, { backgroundColor: colors.surface }]} onPress={handlePrevMonth}>
+            <MaterialIcons name="chevron-left" size={24} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.monthYearContainer}>
-            <Text style={styles.monthYearText}>
+            <Text style={[styles.monthYearText, { color: colors.text }]}>
               {getCurrentMonthName()} {currentDate.getFullYear()}
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.navButton} onPress={handleNextMonth}>
-            <MaterialIcons name="chevron-right" size={24} color="#000" />
+          <TouchableOpacity style={[styles.navButton, { backgroundColor: colors.surface }]} onPress={handleNextMonth}>
+            <MaterialIcons name="chevron-right" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
         {/* Calendar */}
-        <View style={styles.calendarContainer}>
+        <View style={[styles.calendarContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Days of Week Header */}
           <View style={styles.daysOfWeekContainer}>
             {daysOfWeek.map((day, index) => (
               <View key={index} style={styles.dayOfWeekContainer}>
-                <Text style={styles.dayOfWeekText}>{day}</Text>
+                <Text style={[styles.dayOfWeekText, { color: colors.muted }]}>{day}</Text>
               </View>
             ))}
           </View>
@@ -546,14 +532,14 @@ export default function CalendarScreen() {
           {/* Loading State */}
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#000" />
-              <Text style={styles.loadingText}>Loading calendar...</Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.muted }]}>Loading calendar...</Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={() => loadCalendarData()}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+              <TouchableOpacity style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={() => loadCalendarData()}>
+                <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -575,8 +561,8 @@ export default function CalendarScreen() {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateEvent}>
-        <MaterialIcons name="add" size={24} color="#fff" />
+      <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={handleCreateEvent}>
+        <MaterialIcons name="add" size={24} color={colors.background} />
       </TouchableOpacity>
 
       {/* Event Creation/Edit Modal */}
@@ -586,19 +572,19 @@ export default function CalendarScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setIsEventModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setIsEventModalVisible(false)}>
-              <Text style={styles.modalCancelButton}>Cancel</Text>
+              <Text style={[styles.modalCancelButton, { color: colors.muted }]}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
               {isEditingEvent ? 'Edit Event' : 'New Event'}
             </Text>
             <TouchableOpacity
               onPress={handleSaveEvent}
               disabled={isCreatingEvent}
             >
-              <Text style={[styles.modalSaveButton, isCreatingEvent && styles.disabledButton]}>
+              <Text style={[styles.modalSaveButton, { color: colors.primary }, isCreatingEvent && { color: colors.muted }]}>
                 {isCreatingEvent ? 'Saving...' : 'Save'}
               </Text>
             </TouchableOpacity>
@@ -606,35 +592,35 @@ export default function CalendarScreen() {
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Event Title</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Event Title</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={eventTitle}
                 onChangeText={setEventTitle}
                 placeholder="Enter event title"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Start Time</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Start Time</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={eventStartTime}
                 onChangeText={setEventStartTime}
                 placeholder="YYYY-MM-DDTHH:MM"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>End Time</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>End Time</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={eventEndTime}
                 onChangeText={setEventEndTime}
                 placeholder="YYYY-MM-DDTHH:MM"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
           </ScrollView>
@@ -751,29 +737,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
   },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 0,
-    backgroundColor: '#fff',
-    marginBottom: 20,
-    marginTop: -5,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    color: '#000',
-    fontSize: 16,
-  },
+
   scrollView: {
     flex: 1,
   },
@@ -843,15 +807,12 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 16,
-    color: '#000',
     fontWeight: '400',
   },
   todayDateText: {
-    color: '#fff',
     fontWeight: '600',
   },
   selectedDateText: {
-    color: '#007AFF',
     fontWeight: '600',
   },
   todayIndicator: {
@@ -860,7 +821,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#000',
     zIndex: -1,
   },
   eventsContainer: {
@@ -1037,5 +997,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Legend Styles
+  legendContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 10,
+  },
+  legendItems: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
 });

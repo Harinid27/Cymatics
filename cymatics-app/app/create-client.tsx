@@ -168,48 +168,48 @@ export default function CreateClientScreen() {
                 placeholderTextColor={colors.placeholder}
                 autoCapitalize="words"
               />
-              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+              {errors.name && <Text style={[styles.errorText, { color: colors.error }]}>{errors.name}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Company Name *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Company Name *</Text>
               <TextInput
-                style={[styles.textInput, errors.company && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.company && styles.inputError]}
                 value={formData.company}
                 onChangeText={(value) => updateFormData('company', value)}
                 placeholder="Enter company name"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="words"
               />
-              {errors.company && <Text style={styles.errorText}>{errors.company}</Text>}
+              {errors.company && <Text style={[styles.errorText, { color: colors.error }]}>{errors.company}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number *</Text>
               <TextInput
-                style={[styles.textInput, errors.number && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.number && styles.inputError]}
                 value={formData.number}
                 onChangeText={(value) => updateFormData('number', value)}
                 placeholder="Enter phone number"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="phone-pad"
               />
-              {errors.number && <Text style={styles.errorText}>{errors.number}</Text>}
+              {errors.number && <Text style={[styles.errorText, { color: colors.error }]}>{errors.number}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Email Address</Text>
               <TextInput
-                style={[styles.textInput, errors.email && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.email && styles.inputError]}
                 value={formData.email}
                 onChangeText={(value) => updateFormData('email', value)}
                 placeholder="Enter email address (optional)"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+              {errors.email && <Text style={[styles.errorText, { color: colors.error }]}>{errors.email}</Text>}
             </View>
           </View>
 
@@ -218,16 +218,16 @@ export default function CreateClientScreen() {
         </ScrollView>
 
         {/* Bottom Save Button */}
-        <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.bottomButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity
             onPress={handleSubmit}
-            style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+            style={[styles.bottomSaveButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.background} />
             ) : (
-              <Text style={styles.saveButtonText}>Save Client</Text>
+              <Text style={[styles.saveButtonText, { color: colors.background }]}>Save Client</Text>
             )}
           </TouchableOpacity>
         </View>

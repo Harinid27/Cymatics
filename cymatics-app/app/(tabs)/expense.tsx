@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import ExpenseDetailModal from '@/src/components/modals/ExpenseDetailModal';
 
 export default function ExpenseScreen() {
   const { colors } = useTheme();
@@ -34,12 +35,21 @@ export default function ExpenseScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [isExpenseDetailModalVisible, setIsExpenseDetailModalVisible] = useState(false);
 
   useEffect(() => {
     loadExpenses();
   }, []);
+
+  // Apply filters when expenses or selectedFilters change
+  useEffect(() => {
+    if (expenses.length > 0) {
+      applyFilters(expenses);
+    }
+  }, [expenses, selectedFilters]);
 
   // Refresh data when screen comes into focus (e.g., returning from create screen)
   useFocusEffect(
@@ -61,7 +71,7 @@ export default function ExpenseScreen() {
       // Ensure expenses is always an array
       const expensesData = Array.isArray(response?.data) ? response.data : [];
       setExpenses(expensesData);
-      applyFilters(expensesData, selectedCategory);
+      applyFilters(expensesData);
     } catch (error) {
       console.error('Failed to load expenses:', error);
       setError('Failed to load expenses. Please try again.');
@@ -151,47 +161,99 @@ export default function ExpenseScreen() {
   const renderExpenseItem = (expense: Expense) => (
     <View key={expense.id} style={styles.expenseItemContainer}>
       <TouchableOpacity
-        style={styles.expenseItem}
+        style={[styles.expenseItem, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => handleExpensePress(expense)}
         activeOpacity={0.7}
       >
-        <View style={styles.expenseIcon}>
-          <MaterialIcons name={getCategoryIcon(expense.category) as any} size={24} color="#000" />
+        <View style={[styles.expenseIcon, { backgroundColor: colors.surface }]}>
+          <MaterialIcons name={getCategoryIcon(expense.category) as any} size={24} color={colors.primary} />
         </View>
         <View style={styles.expenseInfo}>
-          <Text style={styles.expenseType}>{expense.description}</Text>
-          <Text style={styles.expenseCategory}>{expense.category}</Text>
-          <Text style={styles.expenseDate}>{formatDate(expense.date)}</Text>
+          <Text style={[styles.expenseType, { color: colors.text }]}>{expense.description}</Text>
+          <Text style={[styles.expenseCategory, { color: colors.muted }]}>{expense.category}</Text>
+          <Text style={[styles.expenseDate, { color: colors.muted }]}>{formatDate(expense.date)}</Text>
           {expense.project && (
-            <Text style={styles.projectCode}>{expense.project.code}</Text>
+            <Text style={[styles.projectCode, { color: colors.primary }]}>{expense.project.code}</Text>
           )}
         </View>
         <View style={styles.expenseAmountContainer}>
-          <Text style={styles.expenseAmount}>{formatCurrency(expense.amount)}</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleEditExpense(expense);
-            }}
-          >
-            <MaterialIcons name="edit" size={16} color="#666" />
-          </TouchableOpacity>
+          <Text style={[styles.expenseAmount, { color: colors.error }]}>{formatCurrency(expense.amount)}</Text>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleEditExpense(expense);
+              }}
+            >
+              <MaterialIcons name="edit" size={16} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDeleteExpense(expense);
+              }}
+            >
+              <MaterialIcons name="delete" size={16} color="#F44336" />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     </View>
   );
 
   const handleExpensePress = (expense: Expense) => {
-    Alert.alert(
-      'Expense Details',
-      `Description: ${expense.description}\nCategory: ${expense.category}\nAmount: ${formatCurrency(expense.amount)}\nDate: ${formatDate(expense.date)}${expense.project ? `\nProject: ${expense.project.name} (${expense.project.code})` : ''}${expense.notes ? `\nNotes: ${expense.notes}` : ''}`,
-      [{ text: 'OK' }]
-    );
+    setSelectedExpense(expense);
+    setIsExpenseDetailModalVisible(true);
+  };
+
+  const closeExpenseDetailModal = () => {
+    setIsExpenseDetailModalVisible(false);
+    setSelectedExpense(null);
   };
 
   const handleEditExpense = (expense: Expense) => {
     router.push(`/edit-expense?id=${expense.id}`);
+  };
+
+  const handleDeleteExpense = (expense: Expense) => {
+    Alert.alert(
+      'Delete Expense',
+      `Are you sure you want to delete this expense of ${formatCurrency(expense.amount)} for ${expense.category}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const success = await FinancialService.deleteExpense(expense.id);
+
+              if (success) {
+                // Remove the expense from local state
+                const updatedExpenses = expenses.filter(e => e.id !== expense.id);
+                setExpenses(updatedExpenses);
+                applyFilters(updatedExpenses, selectedCategory);
+
+                Alert.alert('Success', 'Expense deleted successfully');
+              } else {
+                Alert.alert('Error', 'Failed to delete expense. Please try again.');
+              }
+            } catch (error) {
+              console.error('Delete expense error:', error);
+              Alert.alert('Error', 'Failed to delete expense. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddExpense = () => {
@@ -202,28 +264,46 @@ export default function ExpenseScreen() {
     setIsFilterModalVisible(true);
   };
 
-  const handleCategoryFilter = (category: string) => {
-    setSelectedCategory(category);
+  const closeFilterModal = () => {
     setIsFilterModalVisible(false);
-    applyFilters(expenses, category);
   };
 
-  const applyFilters = (expenseList: Expense[], category: string) => {
+  const toggleFilter = (filter: string) => {
+    setSelectedFilters(prev =>
+      prev.includes(filter)
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedFilters([]);
+  };
+
+  const applyFilters = (expenseList: Expense[]) => {
     let filtered = [...expenseList];
 
-    if (category !== 'all') {
-      filtered = filtered.filter(expense =>
-        expense.category.toLowerCase() === category.toLowerCase()
-      );
+    // Apply additional filters from the filter modal
+    if (selectedFilters.length > 0) {
+      filtered = filtered.filter(expense => {
+        return selectedFilters.some(filter => {
+          // Check category filters
+          return expense.category === filter;
+        });
+      });
     }
 
     setFilteredExpenses(filtered);
   };
 
-  // Get unique categories for filter
-  const getUniqueCategories = () => {
-    const categories = expenses.map(expense => expense.category);
-    return ['all', ...Array.from(new Set(categories))];
+  const getFilterOptions = () => {
+    const categories = Array.from(new Set(expenses.map(e => e.category)));
+
+    return categories.map(category => ({
+      label: category,
+      value: category,
+      count: expenses.filter(e => e.category === category).length
+    }));
   };
 
   return (
@@ -242,34 +322,33 @@ export default function ExpenseScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search expenses..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-            returnKeyType="search"
-            onSubmitEditing={() => handleSearch(searchQuery)}
-          />
-          {isSearching && (
-            <ActivityIndicator size="small" color="#999" style={styles.searchLoader} />
-          )}
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => handleSearch('')}
-              style={styles.clearSearchButton}
-            >
-              <MaterialIcons name="clear" size={20} color="#999" />
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity style={styles.filterButton} onPress={handleFilterPress}>
-          <MaterialIcons name="filter-list" size={24} color="#000" />
-          {selectedCategory !== 'all' && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>1</Text>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <MaterialIcons name="search" size={20} color={colors.muted} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Search expenses..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+          returnKeyType="search"
+          onSubmitEditing={() => handleSearch(searchQuery)}
+          placeholderTextColor={colors.placeholder}
+        />
+        {isSearching && (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.searchLoader} />
+        )}
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => handleSearch('')}
+            style={styles.clearSearchButton}
+          >
+            <MaterialIcons name="clear" size={20} color={colors.muted} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surface }]} onPress={handleFilterPress}>
+          <MaterialIcons name="filter-list" size={20} color={colors.text} />
+          {selectedFilters.length > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.filterBadgeText, { color: colors.background }]}>{selectedFilters.length}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -290,10 +369,10 @@ export default function ExpenseScreen() {
       >
         {/* Error Display */}
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.error }]}>
+            <Text style={[styles.errorText, { color: colors.background }]}>{error}</Text>
             <TouchableOpacity onPress={loadExpenses} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -301,26 +380,26 @@ export default function ExpenseScreen() {
         {/* Expense History Section */}
         <View style={styles.expenseHistorySection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Expense History</Text>
-            <Text style={styles.expenseCount}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Expense History</Text>
+            <Text style={[styles.expenseCount, { color: colors.muted }]}>
               {(filteredExpenses || []).length} expense{(filteredExpenses || []).length !== 1 ? 's' : ''}
-              {selectedCategory !== 'all' && ` (${selectedCategory})`}
+              {selectedFilters.length > 0 && ` (${selectedFilters.length} filter${selectedFilters.length !== 1 ? 's' : ''})`}
             </Text>
           </View>
 
           {/* Content */}
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#000" />
-              <Text style={styles.loadingText}>Loading expenses...</Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.muted }]}>Loading expenses...</Text>
             </View>
           ) : !filteredExpenses || filteredExpenses.length === 0 ? (
             <View style={styles.emptyStateContainer}>
-              <MaterialIcons name="receipt-long" size={48} color="#ccc" />
-              <Text style={styles.emptyStateTitle}>No Expenses Found</Text>
-              <Text style={styles.emptyStateText}>
+              <MaterialIcons name="receipt-long" size={48} color={colors.muted} />
+              <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No Expenses Found</Text>
+              <Text style={[styles.emptyStateText, { color: colors.muted }]}>
                 {searchQuery ? 'Try adjusting your search terms' :
-                 selectedCategory !== 'all' ? `No expenses in ${selectedCategory} category` :
+                 selectedFilters.length > 0 ? 'No expenses match the selected filters' :
                  'Add your first expense to get started'}
               </Text>
             </View>
@@ -337,8 +416,8 @@ export default function ExpenseScreen() {
       </ScrollView>
 
       {/* Floating Add Button */}
-      <TouchableOpacity style={styles.floatingButton} onPress={handleAddExpense}>
-        <MaterialIcons name="add" size={28} color="#000" />
+      <TouchableOpacity style={[styles.floatingButton, { backgroundColor: colors.primary }]} onPress={handleAddExpense}>
+        <MaterialIcons name="add" size={28} color={colors.background} />
       </TouchableOpacity>
 
       {/* Filter Modal */}
@@ -349,47 +428,69 @@ export default function ExpenseScreen() {
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter by Category</Text>
-              <TouchableOpacity
-                onPress={() => setIsFilterModalVisible(false)}
-                style={styles.modalCloseButton}
-              >
-                <MaterialIcons name="close" size={24} color="#000" />
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <View style={[styles.filterModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterModalTitle, { color: colors.text }]}>Filter Expenses</Text>
+              <TouchableOpacity onPress={closeFilterModal} style={styles.filterModalCloseButton}>
+                <MaterialIcons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.filterOptions}>
-              {getUniqueCategories().map((category) => (
+            <ScrollView style={styles.filterOptions} showsVerticalScrollIndicator={false}>
+              {getFilterOptions().map((option, index) => (
                 <TouchableOpacity
-                  key={category}
+                  key={index}
                   style={[
                     styles.filterOption,
-                    selectedCategory === category && styles.selectedFilterOption,
+                    { borderBottomColor: colors.border },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOption, { backgroundColor: colors.surface }]
                   ]}
-                  onPress={() => handleCategoryFilter(category)}
+                  onPress={() => toggleFilter(option.value)}
                 >
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      selectedCategory === category && styles.selectedFilterOptionText,
-                    ]}
-                  >
-                    {category === 'all' ? 'All Categories' : category}
+                  <Text style={[
+                    styles.filterOptionText,
+                    { color: colors.text },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOptionText, { color: colors.primary }]
+                  ]}>
+                    {option.label}
                   </Text>
-                  <Text style={styles.filterOptionCount}>
-                    {category === 'all'
-                      ? expenses.length
-                      : expenses.filter(e => e.category.toLowerCase() === category.toLowerCase()).length
-                    }
+                  <Text style={[styles.filterOptionCount, { color: colors.muted }]}>
+                    {option.count}
                   </Text>
+                  {selectedFilters.includes(option.value) && (
+                    <MaterialIcons name="check" size={20} color={colors.primary} />
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {/* Filter Actions */}
+            <View style={[styles.filterModalActions, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.clearFiltersButton, { borderColor: colors.border, backgroundColor: 'transparent' }]}
+                onPress={clearFilters}
+              >
+                <Text style={[styles.clearFiltersText, { color: colors.text }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.applyFiltersButton, { backgroundColor: colors.primary }]}
+                onPress={closeFilterModal}
+              >
+                <Text style={[styles.applyFiltersText, { color: colors.background }]}>Apply</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
+
+      {/* Expense Detail Modal */}
+      <ExpenseDetailModal
+        visible={isExpenseDetailModalVisible}
+        expense={selectedExpense}
+        onClose={closeExpenseDetailModal}
+        onEdit={handleEditExpense}
+        onDelete={handleDeleteExpense}
+      />
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
@@ -421,28 +522,16 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 0,
-    backgroundColor: '#fff',
-    marginBottom: 10,
-    marginTop: -5,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 15,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    marginRight: 15,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    color: '#000',
     fontSize: 16,
   },
   searchLoader: {
@@ -454,7 +543,9 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: 8,
+    marginLeft: 12,
     position: 'relative',
+    borderRadius: 8,
   },
   filterBadge: {
     position: 'absolute',
@@ -499,10 +590,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   expenseItemContainer: {
-    backgroundColor: '#fff',
     borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
     marginBottom: 0,
     height: 85,
   },
@@ -511,12 +599,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 15,
     height: '100%',
+    borderRadius: 15,
+    borderWidth: 1,
   },
   expenseIcon: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
@@ -528,18 +617,15 @@ const styles = StyleSheet.create({
   expenseType: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 2,
   },
   expenseCategory: {
     fontSize: 12,
-    color: '#4285F4',
     fontWeight: '500',
     marginBottom: 2,
   },
   expenseDate: {
     fontSize: 14,
-    color: '#999',
   },
   projectCode: {
     fontSize: 12,
@@ -556,7 +642,15 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 4,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   editButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  deleteButton: {
     padding: 4,
   },
   floatingButton: {
@@ -637,25 +731,22 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '70%',
   },
-  modalHeader: {
+  filterModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  modalTitle: {
+  filterModalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
   },
-  modalCloseButton: {
+  filterModalCloseButton: {
     padding: 4,
   },
   filterOptions: {
@@ -668,23 +759,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
   },
   selectedFilterOption: {
-    backgroundColor: '#f0f8ff',
+    backgroundColor: 'rgba(66, 133, 244, 0.1)',
   },
   filterOptionText: {
     fontSize: 16,
-    color: '#000',
     flex: 1,
   },
   selectedFilterOptionText: {
-    color: '#4285F4',
     fontWeight: '600',
   },
   filterOptionCount: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '500',
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+  },
+  clearFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  clearFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  applyFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  applyFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

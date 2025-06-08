@@ -17,8 +17,10 @@ import {
   Animated,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function RegisterScreen() {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const { logoAnimated } = useLocalSearchParams();
 
@@ -122,8 +124,11 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#fff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
@@ -157,49 +162,53 @@ export default function RegisterScreen() {
                   }
                 ]}
               >
-                <Text style={styles.title}>Create an account</Text>
-                <Text style={styles.subtitle}>Enter your email to sign up for this app</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Create an account</Text>
+                <Text style={[styles.subtitle, { color: colors.muted }]}>Enter your email to sign up for this app</Text>
 
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }]}
                   placeholder="email@domain.com"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.placeholder}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
 
-                <TouchableOpacity style={styles.primaryButton} onPress={handleEmailSignup}>
+                <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={handleEmailSignup}>
                   <Text style={styles.primaryButtonText}>Sign up with email</Text>
                 </TouchableOpacity>
 
                 <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                  <Text style={styles.dividerText}>or continue with</Text>
-                  <View style={styles.divider} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.dividerText, { color: colors.muted }]}>or continue with</Text>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 </View>
 
-                <TouchableOpacity style={styles.googleButton} onPress={handleGoogleSignup}>
+                <TouchableOpacity style={[styles.googleButton, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleGoogleSignup}>
                   <Image
                     source={{ uri: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png' }}
                     style={styles.googleIcon}
                   />
-                  <Text style={styles.googleButtonText}>Google</Text>
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>Google</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.footerText}>
+                <Text style={[styles.footerText, { color: colors.muted }]}>
                   By clicking continue, you agree to our{' '}
-                  <Text style={styles.footerLink}>Terms of Service</Text>
+                  <Text style={[styles.footerLink, { color: colors.primary }]}>Terms of Service</Text>
                   {' '}and{' '}
-                  <Text style={styles.footerLink}>Privacy Policy</Text>
+                  <Text style={[styles.footerLink, { color: colors.primary }]}>Privacy Policy</Text>
                 </Text>
 
                 <TouchableOpacity
                   style={styles.skipButton}
                   onPress={() => router.replace('/(tabs)')}
                 >
-                  <Text style={styles.skipButtonText}>Skip to Dashboard (Dev)</Text>
+                  <Text style={[styles.skipButtonText, { color: colors.muted }]}>Skip to Dashboard (Dev)</Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -213,7 +222,6 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -244,26 +252,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
-    color: '#000',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 8,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginTop: 8,
     marginBottom: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#ddd',
   },
   primaryButton: {
-    backgroundColor: '#000',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -283,22 +286,18 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#eee',
   },
   dividerText: {
-    color: '#999',
     paddingHorizontal: 10,
     fontSize: 14,
   },
   googleButton: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#eee',
     marginBottom: 4,
   },
   googleIcon: {
@@ -307,12 +306,10 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   googleButtonText: {
-    color: '#333',
     fontSize: 16,
     fontWeight: '500',
   },
   footerText: {
-    color: '#666',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
@@ -320,20 +317,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   footerLink: {
-    color: '#333',
     fontWeight: '500',
   },
   skipButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'transparent',
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
     marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
   skipButtonText: {
-    color: '#666',
     fontSize: 14,
     fontWeight: '500',
   },

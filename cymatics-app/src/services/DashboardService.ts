@@ -97,6 +97,41 @@ export interface FinancialSummary {
   }>;
 }
 
+// New Django-equivalent chart interfaces
+export interface MonthlyIncomeExpenseChart {
+  months: string[];
+  incomeValues: number[];
+  expenseValues: number[];
+}
+
+export interface MonthlyProjectChart {
+  months: string[];
+  projectCounts: number[];
+}
+
+export interface ExpensePieChart {
+  categories: string[];
+  amounts: number[];
+}
+
+export interface MonthlyExpensesStackedChart {
+  months: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor: string;
+  }>;
+}
+
+export interface CategoryExpensesChart {
+  categories: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor: string;
+  }>;
+}
+
 class DashboardService {
   /**
    * Get dashboard statistics
@@ -327,6 +362,111 @@ class DashboardService {
   }
 
   /**
+   * Get monthly income vs expense chart data (Django equivalent)
+   */
+  async getMonthlyIncomeExpenseChart(): Promise<MonthlyIncomeExpenseChart | null> {
+    try {
+      const response = await ApiService.get<MonthlyIncomeExpenseChart>(`${envConfig.DASHBOARD_ENDPOINT}/charts/monthly-income-expense`);
+
+      console.log('Monthly income expense chart API response:', response);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch monthly income expense chart:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Monthly income expense chart error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get monthly project count chart data (Django equivalent)
+   */
+  async getMonthlyProjectChart(): Promise<MonthlyProjectChart | null> {
+    try {
+      const response = await ApiService.get<MonthlyProjectChart>(`${envConfig.DASHBOARD_ENDPOINT}/charts/monthly-projects`);
+
+      console.log('Monthly project chart API response:', response);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch monthly project chart:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Monthly project chart error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get expense pie chart data (Django equivalent)
+   */
+  async getExpensePieChart(): Promise<ExpensePieChart | null> {
+    try {
+      const response = await ApiService.get<ExpensePieChart>(`${envConfig.DASHBOARD_ENDPOINT}/charts/expense-pie`);
+
+      console.log('Expense pie chart API response:', response);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch expense pie chart:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Expense pie chart error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get monthly expenses stacked bar chart data (Django equivalent)
+   */
+  async getMonthlyExpensesStackedChart(): Promise<MonthlyExpensesStackedChart | null> {
+    try {
+      const response = await ApiService.get<MonthlyExpensesStackedChart>(`${envConfig.DASHBOARD_ENDPOINT}/charts/monthly-expenses-stacked`);
+
+      console.log('Monthly expenses stacked chart API response:', response);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch monthly expenses stacked chart:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Monthly expenses stacked chart error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get category expenses bar chart data (Django equivalent)
+   */
+  async getCategoryExpensesChart(): Promise<CategoryExpensesChart | null> {
+    try {
+      const response = await ApiService.get<CategoryExpensesChart>(`${envConfig.DASHBOARD_ENDPOINT}/charts/category-expenses`);
+
+      console.log('Category expenses chart API response:', response);
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      console.error('Failed to fetch category expenses chart:', response.error);
+      return null;
+    } catch (error) {
+      console.error('Category expenses chart error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get all dashboard data at once
    */
   async getAllDashboardData(period: string = '6months'): Promise<{
@@ -336,6 +476,12 @@ class DashboardService {
     incomeExpenseChart: IncomeExpenseChart | null;
     projectDetailsChart: ProjectDetailsChart | null;
     expenseBreakdownChart: ExpenseBreakdownChart | null;
+    // New Django-equivalent charts
+    monthlyIncomeExpenseChart: MonthlyIncomeExpenseChart | null;
+    monthlyProjectChart: MonthlyProjectChart | null;
+    expensePieChart: ExpensePieChart | null;
+    monthlyExpensesStackedChart: MonthlyExpensesStackedChart | null;
+    categoryExpensesChart: CategoryExpensesChart | null;
   }> {
     try {
       console.log('🔄 Fetching all dashboard data...');
@@ -348,6 +494,11 @@ class DashboardService {
         incomeExpenseChart,
         projectDetailsChart,
         expenseBreakdownChart,
+        monthlyIncomeExpenseChart,
+        monthlyProjectChart,
+        expensePieChart,
+        monthlyExpensesStackedChart,
+        categoryExpensesChart,
       ] = await Promise.all([
         this.getStats(),
         this.getTodaySchedule(),
@@ -355,6 +506,11 @@ class DashboardService {
         this.getIncomeExpenseChart(period),
         this.getProjectDetailsChart(),
         this.getExpenseBreakdownChart(period),
+        this.getMonthlyIncomeExpenseChart(),
+        this.getMonthlyProjectChart(),
+        this.getExpensePieChart(),
+        this.getMonthlyExpensesStackedChart(),
+        this.getCategoryExpensesChart(),
       ]);
 
       console.log('📊 Dashboard data results:', {
@@ -364,6 +520,11 @@ class DashboardService {
         incomeExpenseChart: incomeExpenseChart ? 'loaded' : 'null',
         projectDetailsChart: projectDetailsChart ? 'loaded' : 'null',
         expenseBreakdownChart: expenseBreakdownChart ? 'loaded' : 'null',
+        monthlyIncomeExpenseChart: monthlyIncomeExpenseChart ? 'loaded' : 'null',
+        monthlyProjectChart: monthlyProjectChart ? 'loaded' : 'null',
+        expensePieChart: expensePieChart ? 'loaded' : 'null',
+        monthlyExpensesStackedChart: monthlyExpensesStackedChart ? 'loaded' : 'null',
+        categoryExpensesChart: categoryExpensesChart ? 'loaded' : 'null',
       });
 
       // Provide empty chart data instead of null when API calls fail
@@ -375,6 +536,11 @@ class DashboardService {
         incomeExpenseChart: incomeExpenseChart || this.createEmptyIncomeExpenseChart(),
         projectDetailsChart: projectDetailsChart || this.createEmptyProjectDetailsChart(),
         expenseBreakdownChart: expenseBreakdownChart || this.createEmptyExpenseBreakdownChart(),
+        monthlyIncomeExpenseChart,
+        monthlyProjectChart,
+        expensePieChart,
+        monthlyExpensesStackedChart,
+        categoryExpensesChart,
       };
     } catch (error) {
       console.error('❌ Failed to fetch all dashboard data:', error);
@@ -387,6 +553,11 @@ class DashboardService {
         incomeExpenseChart: this.createEmptyIncomeExpenseChart(),
         projectDetailsChart: this.createEmptyProjectDetailsChart(),
         expenseBreakdownChart: this.createEmptyExpenseBreakdownChart(),
+        monthlyIncomeExpenseChart: null,
+        monthlyProjectChart: null,
+        expensePieChart: null,
+        monthlyExpensesStackedChart: null,
+        categoryExpensesChart: null,
       };
     }
   }

@@ -70,4 +70,39 @@ router.get(
   dashboardController.getExpenseBreakdownChart
 );
 
+/**
+ * @route   GET /api/dashboard/charts/monthly-income-expense
+ * @desc    Get monthly income vs expense chart data (Django equivalent)
+ * @access  Private
+ */
+router.get('/charts/monthly-income-expense', dashboardController.getMonthlyIncomeExpenseChart);
+
+/**
+ * @route   GET /api/dashboard/charts/monthly-projects
+ * @desc    Get monthly project count chart data (Django equivalent)
+ * @access  Private
+ */
+router.get('/charts/monthly-projects', dashboardController.getMonthlyProjectChart);
+
+/**
+ * @route   GET /api/dashboard/charts/expense-pie
+ * @desc    Get expense pie chart data (Django equivalent)
+ * @access  Private
+ */
+router.get('/charts/expense-pie', dashboardController.getExpensePieChart);
+
+/**
+ * @route   GET /api/dashboard/charts/monthly-expenses-stacked
+ * @desc    Get monthly expenses stacked bar chart data (Django equivalent)
+ * @access  Private
+ */
+router.get('/charts/monthly-expenses-stacked', dashboardController.getMonthlyExpensesStackedChart);
+
+/**
+ * @route   GET /api/dashboard/charts/category-expenses
+ * @desc    Get category expenses bar chart data (Django equivalent)
+ * @access  Private
+ */
+router.get('/charts/category-expenses', dashboardController.getCategoryExpensesChart);
+
 export default router;

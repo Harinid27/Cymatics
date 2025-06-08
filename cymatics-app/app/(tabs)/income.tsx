@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Modal,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -35,17 +36,21 @@ export default function IncomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedIncome, setSelectedIncome] = useState<Income | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Apply filters when incomes or activeTab changes
+  // Apply filters when incomes, activeTab, or selectedFilters change
   useEffect(() => {
     if (incomes.length > 0) {
       applyFilters(incomes, activeTab);
     }
-  }, [incomes, activeTab]);
+  }, [incomes, activeTab, selectedFilters]);
 
   // Refresh data when screen comes into focus (e.g., returning from create screen)
   useFocusEffect(
@@ -187,7 +192,25 @@ export default function IncomeScreen() {
         break;
     }
 
-    console.log(`Filter result: ${filtered.length} incomes after filtering for ${tab}`);
+    // Apply additional filters from the filter modal
+    if (selectedFilters.length > 0) {
+      filtered = filtered.filter(income => {
+        return selectedFilters.some(filter => {
+          // Check category filters
+          if (filter === 'Project Income') {
+            return income.projectIncome;
+          }
+          if (filter === 'Non-Project Income') {
+            return !income.projectIncome;
+          }
+          // Check project name filters
+          return income.project?.name === filter;
+        });
+      });
+      console.log(`Additional filter result: ${filtered.length} incomes after applying modal filters`);
+    }
+
+    console.log(`Final filter result: ${filtered.length} incomes after all filtering for ${tab}`);
     setFilteredIncomes(filtered);
   };
 
@@ -207,48 +230,132 @@ export default function IncomeScreen() {
   const renderIncomeItem = (income: Income) => (
     <View key={income.id} style={styles.paymentItemContainer}>
       <TouchableOpacity
-        style={styles.paymentItem}
+        style={[styles.paymentItem, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => handleIncomePress(income)}
         activeOpacity={0.7}
       >
-        <View style={styles.paymentAvatar}>
-          <Text style={styles.paymentAvatarText}>
+        <View style={[styles.paymentAvatar, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.paymentAvatarText, { color: colors.background }]}>
             {income.project?.name?.charAt(0) || income.description.charAt(0)}
           </Text>
         </View>
         <View style={styles.paymentInfo}>
-          <Text style={styles.paymentName}>
+          <Text style={[styles.paymentName, { color: colors.text }]}>
             {income.project?.name || income.description}
           </Text>
-          <Text style={styles.paymentAmount}>{formatCurrency(income.amount)}</Text>
-          <Text style={styles.paymentDate}>{formatDate(income.date)}</Text>
+          <Text style={[styles.paymentAmount, { color: colors.primary }]}>{formatCurrency(income.amount)}</Text>
+          <Text style={[styles.paymentDate, { color: colors.muted }]}>{formatDate(income.date)}</Text>
           {income.project && (
-            <Text style={styles.projectCode}>{income.project.code}</Text>
+            <Text style={[styles.projectCode, { color: colors.muted }]}>{income.project.code}</Text>
           )}
         </View>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleEditIncome(income);
-          }}
-        >
-          <MaterialIcons name="edit" size={16} color="#666" />
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleEditIncome(income);
+            }}
+          >
+            <MaterialIcons name="edit" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDeleteIncome(income);
+            }}
+          >
+            <MaterialIcons name="delete" size={16} color="#F44336" />
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </View>
   );
 
   const handleIncomePress = (income: Income) => {
-    Alert.alert(
-      'Income Details',
-      `Description: ${income.description}\nAmount: ${formatCurrency(income.amount)}\nDate: ${formatDate(income.date)}${income.project ? `\nProject: ${income.project.name} (${income.project.code})` : ''}${income.note ? `\nNote: ${income.note}` : ''}`,
-      [{ text: 'OK' }]
+    setSelectedIncome(income);
+    setIsModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setSelectedIncome(null);
+  };
+
+  const handleFilterPress = () => {
+    setIsFilterModalVisible(true);
+  };
+
+  const closeFilterModal = () => {
+    setIsFilterModalVisible(false);
+  };
+
+  const toggleFilter = (filter: string) => {
+    setSelectedFilters(prev =>
+      prev.includes(filter)
+        ? prev.filter(f => f !== filter)
+        : [...prev, filter]
     );
+  };
+
+  const clearFilters = () => {
+    setSelectedFilters([]);
+  };
+
+  const getFilterOptions = () => {
+    const projects = Array.from(new Set(incomes.filter(i => i.project).map(i => i.project!.name)));
+    const categories = ['Project Income', 'Non-Project Income'];
+
+    return [
+      ...categories.map(cat => ({ label: cat, value: cat, count: incomes.filter(i =>
+        cat === 'Project Income' ? i.projectIncome : !i.projectIncome
+      ).length })),
+      ...projects.map(project => ({ label: `Project: ${project}`, value: project, count: incomes.filter(i => i.project?.name === project).length }))
+    ];
   };
 
   const handleEditIncome = (income: Income) => {
     router.push(`/edit-income?id=${income.id}`);
+  };
+
+  const handleDeleteIncome = (income: Income) => {
+    Alert.alert(
+      'Delete Income',
+      `Are you sure you want to delete this income entry of ${formatCurrency(income.amount)}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              const success = await FinancialService.deleteIncome(income.id);
+
+              if (success) {
+                // Remove the income from local state
+                const updatedIncomes = incomes.filter(i => i.id !== income.id);
+                setIncomes(updatedIncomes);
+                applyFilters(updatedIncomes, activeTab);
+
+                Alert.alert('Success', 'Income deleted successfully');
+              } else {
+                Alert.alert('Error', 'Failed to delete income. Please try again.');
+              }
+            } catch (error) {
+              console.error('Delete income error:', error);
+              Alert.alert('Error', 'Failed to delete income. Please try again.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddIncome = () => {
@@ -271,31 +378,38 @@ export default function IncomeScreen() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#999" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search income..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-            returnKeyType="search"
-            onSubmitEditing={() => handleSearch(searchQuery)}
-          />
-          {isSearching && (
-            <ActivityIndicator size="small" color="#999" style={styles.searchLoader} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <MaterialIcons name="search" size={20} color={colors.muted} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.text }]}
+          placeholder="Search income..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+          returnKeyType="search"
+          onSubmitEditing={() => handleSearch(searchQuery)}
+          placeholderTextColor={colors.placeholder}
+        />
+        {isSearching && (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.searchLoader} />
+        )}
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => handleSearch('')}
+            style={styles.clearSearchButton}
+          >
+            <MaterialIcons name="clear" size={20} color={colors.muted} />
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: colors.surface }]}
+          onPress={handleFilterPress}
+        >
+          <MaterialIcons name="filter-list" size={20} color={colors.text} />
+          {selectedFilters.length > 0 && (
+            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.filterBadgeText, { color: colors.background }]}>{selectedFilters.length}</Text>
+            </View>
           )}
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => handleSearch('')}
-              style={styles.clearSearchButton}
-            >
-              <MaterialIcons name="clear" size={20} color="#999" />
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <MaterialIcons name="filter-list" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
@@ -323,31 +437,31 @@ export default function IncomeScreen() {
         )}
 
         {/* Chart Container */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Project Valuation Vs Payment Received</Text>
+        <View style={[styles.chartContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.chartTitle, { color: colors.text }]}>Project Valuation Vs Payment Received</Text>
 
           {/* Chart Legend */}
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
-              <Text style={styles.legendText}>Valuation</Text>
+              <Text style={[styles.legendText, { color: colors.muted }]}>Valuation</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#FF9999' }]} />
-              <Text style={styles.legendText}>Received</Text>
+              <View style={[styles.legendDot, { backgroundColor: '#FF6B6B' }]} />
+              <Text style={[styles.legendText, { color: colors.muted }]}>Received</Text>
             </View>
           </View>
 
           {/* Chart Loading State */}
           {isLoading ? (
             <View style={styles.chartLoadingContainer}>
-              <ActivityIndicator size="large" color="#000" />
-              <Text style={styles.loadingText}>Loading chart data...</Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.muted }]}>Loading chart data...</Text>
             </View>
           ) : !chartData || chartData.length === 0 ? (
             <View style={styles.emptyChartContainer}>
-              <MaterialIcons name="bar-chart" size={48} color="#ccc" />
-              <Text style={styles.emptyChartText}>No chart data available</Text>
+              <MaterialIcons name="bar-chart" size={48} color={colors.muted} />
+              <Text style={[styles.emptyChartText, { color: colors.muted }]}>No chart data available</Text>
             </View>
           ) : (
             /* Simple Bar Chart */
@@ -360,7 +474,7 @@ export default function IncomeScreen() {
                     : 0;
                   const step = Math.ceil(maxValue / 3) || 10; // Default step if maxValue is 0
                   return [step * 3, step * 2, step].map((value, index) => (
-                    <Text key={index} style={styles.yAxisLabel}>₹{value}k</Text>
+                    <Text key={index} style={[styles.yAxisLabel, { color: colors.muted }]}>₹{value}k</Text>
                   ));
                 })()}
               </View>
@@ -375,15 +489,21 @@ export default function IncomeScreen() {
                         <View style={[
                           styles.bar,
                           styles.valuationBar,
-                          { height: Math.max(data.valuation * scale * 0.8, 2) }
+                          {
+                            backgroundColor: '#4285F4', // Blue for valuation
+                            height: Math.max(data.valuation * scale * 0.8, 2)
+                          }
                         ]} />
                         <View style={[
                           styles.bar,
                           styles.receivedBar,
-                          { height: Math.max(data.received * scale * 0.8, 2) }
+                          {
+                            backgroundColor: '#FF6B6B', // Red for received
+                            height: Math.max(data.received * scale * 0.8, 2)
+                          }
                         ]} />
                       </View>
-                      <Text style={styles.xAxisLabel}>{data.month}</Text>
+                      <Text style={[styles.xAxisLabel, { color: colors.muted }]}>{data.month}</Text>
                     </View>
                   );
                 })}
@@ -395,9 +515,9 @@ export default function IncomeScreen() {
         {/* Payment History Section */}
         <View style={styles.paymentHistorySection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Payment History</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Payment History</Text>
             <TouchableOpacity>
-              <Text style={styles.seeAllText}>See all</Text>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>See all</Text>
             </TouchableOpacity>
           </View>
 
@@ -406,10 +526,10 @@ export default function IncomeScreen() {
             {['Ongoing', 'Pending', 'Completed'].map((tab) => (
               <TouchableOpacity
                 key={tab}
-                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                style={[styles.tab, { backgroundColor: colors.surface }, activeTab === tab && { backgroundColor: colors.primary }]}
                 onPress={() => handleTabChange(tab)}
               >
-                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                <Text style={[styles.tabText, { color: colors.text }, activeTab === tab && { color: colors.background }]}>
                   {tab}
                 </Text>
               </TouchableOpacity>
@@ -420,14 +540,14 @@ export default function IncomeScreen() {
           <View style={styles.paymentList}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#000" />
-                <Text style={styles.loadingText}>Loading income data...</Text>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.muted }]}>Loading income data...</Text>
               </View>
             ) : !filteredIncomes || filteredIncomes.length === 0 ? (
               <View style={styles.emptyStateContainer}>
-                <MaterialIcons name="account-balance-wallet" size={48} color="#ccc" />
-                <Text style={styles.emptyStateTitle}>No Income Found</Text>
-                <Text style={styles.emptyStateText}>
+                <MaterialIcons name="account-balance-wallet" size={48} color={colors.muted} />
+                <Text style={[styles.emptyStateTitle, { color: colors.text }]}>No Income Found</Text>
+                <Text style={[styles.emptyStateText, { color: colors.muted }]}>
                   {activeTab === 'Ongoing' ? 'No ongoing income entries' :
                    activeTab === 'Pending' ? 'No pending income entries' :
                    'No completed income entries'}
@@ -444,9 +564,170 @@ export default function IncomeScreen() {
       </ScrollView>
 
       {/* Floating Add Button */}
-      <TouchableOpacity style={styles.floatingButton} onPress={handleAddIncome}>
-        <MaterialIcons name="add" size={28} color="#000" />
+      <TouchableOpacity style={[styles.floatingButton, { backgroundColor: colors.primary }]} onPress={handleAddIncome}>
+        <MaterialIcons name="add" size={28} color={colors.background} />
       </TouchableOpacity>
+
+      {/* Income Details Modal */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Income Details</Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <MaterialIcons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {selectedIncome && (
+                <>
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <MaterialIcons name="description" size={20} color={colors.primary} />
+                    <View style={styles.detailContent}>
+                      <Text style={[styles.detailLabel, { color: colors.muted }]}>Description</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{selectedIncome.description}</Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <MaterialIcons name="attach-money" size={20} color={colors.primary} />
+                    <View style={styles.detailContent}>
+                      <Text style={[styles.detailLabel, { color: colors.muted }]}>Amount</Text>
+                      <Text style={[styles.detailValue, styles.amountText, { color: colors.primary }]}>
+                        {formatCurrency(selectedIncome.amount)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                    <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
+                    <View style={styles.detailContent}>
+                      <Text style={[styles.detailLabel, { color: colors.muted }]}>Date</Text>
+                      <Text style={[styles.detailValue, { color: colors.text }]}>{formatDate(selectedIncome.date)}</Text>
+                    </View>
+                  </View>
+
+                  {selectedIncome.project && (
+                    <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                      <MaterialIcons name="work" size={20} color={colors.primary} />
+                      <View style={styles.detailContent}>
+                        <Text style={[styles.detailLabel, { color: colors.muted }]}>Project</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{selectedIncome.project.name}</Text>
+                        <Text style={[styles.detailSubValue, { color: colors.muted }]}>Code: {selectedIncome.project.code}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {selectedIncome.note && (
+                    <View style={[styles.detailRow, { borderBottomColor: colors.border }]}>
+                      <MaterialIcons name="note" size={20} color={colors.primary} />
+                      <View style={styles.detailContent}>
+                        <Text style={[styles.detailLabel, { color: colors.muted }]}>Note</Text>
+                        <Text style={[styles.detailValue, { color: colors.text }]}>{selectedIncome.note}</Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalActions, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.editModalButton, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  closeModal();
+                  if (selectedIncome) {
+                    handleEditIncome(selectedIncome);
+                  }
+                }}
+              >
+                <MaterialIcons name="edit" size={20} color={colors.background} />
+                <Text style={[styles.editModalButtonText, { color: colors.background }]}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteModalButton, { backgroundColor: colors.error }]}
+                onPress={() => {
+                  closeModal();
+                  if (selectedIncome) {
+                    handleDeleteIncome(selectedIncome);
+                  }
+                }}
+              >
+                <MaterialIcons name="delete" size={20} color={colors.background} />
+                <Text style={[styles.deleteModalButtonText, { color: colors.background }]}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={isFilterModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeFilterModal}
+      >
+        <View style={styles.filterModalOverlay}>
+          <View style={[styles.filterModalContent, { backgroundColor: colors.card }]}>
+            <View style={[styles.filterModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.filterModalTitle, { color: colors.text }]}>Filter Income</Text>
+              <TouchableOpacity onPress={closeFilterModal} style={styles.filterModalCloseButton}>
+                <MaterialIcons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.filterOptions} showsVerticalScrollIndicator={false}>
+              {getFilterOptions().map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.filterOption,
+                    { borderBottomColor: colors.border },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOption, { backgroundColor: colors.surface }]
+                  ]}
+                  onPress={() => toggleFilter(option.value)}
+                >
+                  <Text style={[
+                    styles.filterOptionText,
+                    { color: colors.text },
+                    selectedFilters.includes(option.value) && [styles.selectedFilterOptionText, { color: colors.primary }]
+                  ]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[styles.filterOptionCount, { color: colors.muted }]}>
+                    {option.count}
+                  </Text>
+                  {selectedFilters.includes(option.value) && (
+                    <MaterialIcons name="check" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={[styles.filterModalActions, { borderTopColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.clearFiltersButton, { borderColor: colors.border }]}
+                onPress={clearFilters}
+              >
+                <Text style={[styles.clearFiltersText, { color: colors.text }]}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.applyFiltersButton, { backgroundColor: colors.primary }]}
+                onPress={closeFilterModal}
+              >
+                <Text style={[styles.applyFiltersText, { color: colors.background }]}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
@@ -457,14 +738,12 @@ export default function IncomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
   },
   menuButton: {
     padding: 5,
@@ -473,33 +752,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 0,
-    backgroundColor: '#fff',
-    marginBottom: 10,
-    marginTop: -5,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 15,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    marginRight: 15,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    color: '#000',
     fontSize: 16,
   },
   searchLoader: {
@@ -511,23 +777,37 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: 8,
+    marginLeft: 12,
+    position: 'relative',
+    borderRadius: 8,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
   },
   chartContainer: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 10,
     padding: 20,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
   },
   chartTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 15,
   },
   chartLegend: {
@@ -547,7 +827,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 14,
-    color: '#666',
   },
   barChart: {
     flexDirection: 'row',
@@ -560,7 +839,6 @@ const styles = StyleSheet.create({
   },
   yAxisLabel: {
     fontSize: 12,
-    color: '#999',
   },
   barsContainer: {
     flex: 1,
@@ -583,14 +861,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   valuationBar: {
-    backgroundColor: '#4285F4',
+    // backgroundColor will be set dynamically with theme colors
   },
   receivedBar: {
-    backgroundColor: '#FF9999',
+    // backgroundColor will be set dynamically with theme colors
   },
   xAxisLabel: {
     fontSize: 12,
-    color: '#999',
     marginTop: 5,
   },
   paymentHistorySection: {
@@ -606,11 +883,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   seeAllText: {
     fontSize: 14,
-    color: '#4285F4',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -624,24 +899,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   activeTab: {
-    backgroundColor: '#000',
+    // backgroundColor will be set dynamically with theme colors
   },
   tabText: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    // color will be set dynamically with theme colors
   },
   paymentList: {
     gap: 10,
   },
   paymentItemContainer: {
-    backgroundColor: '#fff',
     borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
     marginBottom: 0,
     height: 85,
   },
@@ -650,12 +921,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 15,
     height: '100%',
+    borderRadius: 15,
+    borderWidth: 1,
   },
   paymentAvatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f0f0f0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
@@ -663,7 +935,6 @@ const styles = StyleSheet.create({
   paymentAvatarText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   paymentInfo: {
     flex: 1,
@@ -672,27 +943,31 @@ const styles = StyleSheet.create({
   paymentName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 2,
   },
   paymentAmount: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FF4444',
     marginBottom: 2,
   },
   paymentDate: {
     fontSize: 14,
-    color: '#999',
   },
   projectCode: {
     fontSize: 12,
-    color: '#4285F4',
     fontWeight: '500',
     marginTop: 2,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   editButton: {
-    padding: 5,
+    padding: 8,
+    marginRight: 8,
+  },
+  deleteButton: {
+    padding: 8,
   },
   floatingButton: {
     position: 'absolute',
@@ -701,7 +976,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -780,5 +1054,181 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    maxHeight: '80%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  modalContent: {
+    padding: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    marginBottom: 15,
+  },
+  detailContent: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 5,
+  },
+  detailValue: {
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  detailSubValue: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  amountText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+  },
+  editModalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    flex: 1,
+    marginRight: 10,
+  },
+  editModalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  deleteModalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    flex: 1,
+    marginLeft: 10,
+  },
+  deleteModalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  filterModalCloseButton: {
+    padding: 4,
+  },
+  filterOptions: {
+    maxHeight: 400,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  selectedFilterOption: {
+    backgroundColor: 'rgba(66, 133, 244, 0.1)',
+  },
+  filterOptionText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  selectedFilterOptionText: {
+    fontWeight: '600',
+  },
+  filterOptionCount: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 10,
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderTopWidth: 1,
+  },
+  clearFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  clearFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  applyFiltersButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  applyFiltersText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

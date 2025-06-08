@@ -17,9 +17,9 @@ model User {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   emailOTPs EmailOTP[]
-  
+
   @@map("users")
 }
 
@@ -30,9 +30,9 @@ model EmailOTP {
   createdAt DateTime @default(now()) @map("created_at")
   expiresAt DateTime @map("expires_at")
   isUsed    Boolean  @default(false) @map("is_used")
-  
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@map("email_otps")
 }
 
@@ -45,9 +45,9 @@ model Client {
   img       String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   projects Project[]
-  
+
   @@map("clients")
 }
 
@@ -60,7 +60,7 @@ model Outclient {
   img       String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   @@map("outclients")
 }
 
@@ -90,14 +90,15 @@ model Project {
   outFor            String?   @db.VarChar(100) @map("out_for")
   outClient         String?   @db.VarChar(100) @map("out_client")
   outsourcingPaid   Boolean   @default(false) @map("outsourcing_paid")
+  onedriveLink      String?   @db.Text @map("onedrive_link")
   clientId          Int       @default(1) @map("client_id")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
-  
+
   client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   incomes  Income[]  @relation("ProjectIncomes")
   expenses Expense[] @relation("ProjectExpenses")
-  
+
   @@map("projects")
 }
 
@@ -111,9 +112,9 @@ model Income {
   projectId     Int?     @map("project_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
-  
+
   project Project? @relation("ProjectIncomes", fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   @@map("incomes")
 }
 
@@ -128,9 +129,9 @@ model Expense {
   projectId      Int?     @map("project_id")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
-  
+
   project Project? @relation("ProjectExpenses", fields: [projectId], references: [id], onDelete: Cascade)
-  
+
   @@map("expenses")
 }
 
@@ -146,7 +147,7 @@ model Asset {
   image     String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   @@map("assets")
 }
 
@@ -161,7 +162,7 @@ model Entertainment {
   image     String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   @@map("entertainment")
 }
 
@@ -172,6 +173,6 @@ model CalendarEvent {
   endTime   DateTime @map("end_time")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+
   @@map("calendar_events")
 }

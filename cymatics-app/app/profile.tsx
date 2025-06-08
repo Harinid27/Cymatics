@@ -27,6 +27,9 @@ export default function ProfileScreen() {
   const [editValue, setEditValue] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [permissionMessage, setPermissionMessage] = useState('');
 
   const handleBack = () => {
     router.back();
@@ -36,26 +39,21 @@ export default function ProfileScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions to change your profile picture.');
+      setPermissionMessage('Please grant camera roll permissions to change your profile picture.');
+      setShowPermissionModal(true);
       return;
     }
 
-    Alert.alert(
-      'Select Image',
-      'Choose an option',
-      [
-        { text: 'Camera', onPress: openCamera },
-        { text: 'Gallery', onPress: openGallery },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    setShowImagePickerModal(true);
   };
 
   const openCamera = async () => {
+    setShowImagePickerModal(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera permissions to take a photo.');
+      setPermissionMessage('Please grant camera permissions to take a photo.');
+      setShowPermissionModal(true);
       return;
     }
 
@@ -72,6 +70,7 @@ export default function ProfileScreen() {
   };
 
   const openGallery = async () => {
+    setShowImagePickerModal(false);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -280,25 +279,17 @@ export default function ProfileScreen() {
 
               {renderProfileField('Bio', userData.bio || '', 'bio')}
 
-              {/* Settings Section */}
+              {/* Logout Section */}
               <View style={[styles.settingsSection, { borderTopColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
-
-                {/* Logout Button */}
+                {/* Instagram-style Logout Button */}
                 <TouchableOpacity
-                  style={[styles.settingItem, styles.logoutItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  style={[styles.instagramLogoutButton, { backgroundColor: colors.background }]}
                   onPress={handleLogout}
                 >
-                  <View style={styles.settingLeft}>
-                    <MaterialIcons name="logout" size={24} color={colors.text} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={[styles.settingTitle, { color: colors.text }]}>Logout</Text>
-                      <Text style={[styles.settingSubtitle, { color: colors.muted }]}>
-                        Sign out of your account
-                      </Text>
-                    </View>
+                  <View style={styles.logoutButtonContent}>
+                    <MaterialIcons name="logout" size={20} color="#FF3B30" />
+                    <Text style={[styles.instagramLogoutText, { color: '#FF3B30' }]}>Logout</Text>
                   </View>
-                  <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
                 </TouchableOpacity>
               </View>
             </>
@@ -388,19 +379,85 @@ export default function ProfileScreen() {
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, { borderColor: colors.border }]}
+                style={[styles.modalButton, { borderColor: colors.border, backgroundColor: 'transparent' }]}
                 onPress={() => setShowLogoutModal(false)}
               >
                 <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton, { backgroundColor: colors.error }]}
+                style={[styles.modalButton, styles.saveButton, { backgroundColor: '#F44336' }]}
                 onPress={confirmLogout}
               >
-                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Logout</Text>
+                <Text style={[styles.modalButtonText, styles.saveButtonText, { color: '#ffffff' }]}>Logout</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Picker Modal */}
+      <Modal
+        visible={showImagePickerModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowImagePickerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Image</Text>
+            <Text style={[styles.modalMessage, { color: colors.muted }]}>
+              Choose an option
+            </Text>
+
+            <View style={styles.imagePickerButtons}>
+              <TouchableOpacity
+                style={[styles.imagePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={openCamera}
+              >
+                <MaterialIcons name="camera-alt" size={24} color={colors.text} />
+                <Text style={[styles.imagePickerButtonText, { color: colors.text }]}>Camera</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.imagePickerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={openGallery}
+              >
+                <MaterialIcons name="photo-library" size={24} color={colors.text} />
+                <Text style={[styles.imagePickerButtonText, { color: colors.text }]}>Gallery</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalButton, { borderColor: colors.border }]}
+              onPress={() => setShowImagePickerModal(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Permission Modal */}
+      <Modal
+        visible={showPermissionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPermissionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Permission Needed</Text>
+            <Text style={[styles.modalMessage, { color: colors.muted }]}>
+              {permissionMessage}
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.saveButton, { backgroundColor: colors.primary }]}
+              onPress={() => setShowPermissionModal(false)}
+            >
+              <Text style={[styles.modalButtonText, styles.saveButtonText]}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -564,37 +621,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 8,
     marginHorizontal: 8,
-    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
   },
   saveButton: {
-    backgroundColor: '#000',
+    borderWidth: 0,
   },
   modalButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000',
     textAlign: 'center',
   },
   saveButtonText: {
-    color: '#fff',
+    // Color will be set inline
   },
   bottomPadding: {
     height: 100,
   },
   tabBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: Platform.OS === 'ios' ? 34 : 20, // Lift higher with proper safe area padding
     left: 0,
     right: 0,
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.12)',
-    paddingBottom: Platform.OS === 'ios' ? 22 : 10,
-    paddingTop: Platform.OS === 'ios' ? 4 : 6,
-    height: Platform.OS === 'ios' ? 65 : 47,
-    elevation: 0,
-    shadowOpacity: 0,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 8,
+    paddingTop: Platform.OS === 'ios' ? 8 : 10,
+    height: Platform.OS === 'ios' ? 65 : 55,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   tabItem: {
     flex: 1,
@@ -670,42 +729,23 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     borderTopWidth: 1,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  instagramLogoutButton: {
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutItem: {
-    marginBottom: 0,
-  },
-  settingLeft: {
+  logoutButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
   },
-  settingTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  settingTitle: {
+  instagramLogoutText: {
     fontSize: 16,
-    fontWeight: '500',
-  },
-  settingSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   themeButton: {
     padding: 8,
@@ -719,5 +759,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
+  },
+  imagePickerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 12,
+  },
+  imagePickerButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  imagePickerButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
   },
 });

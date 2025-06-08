@@ -17,6 +17,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import ClientsService, { UpdateClientData } from '@/src/services/ClientsService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface FormData {
   name: string;
@@ -26,9 +27,10 @@ interface FormData {
 }
 
 export default function EditClientScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     company: '',
@@ -52,7 +54,7 @@ export default function EditClientScreen() {
     try {
       setIsLoadingData(true);
       const clientData = await ClientsService.getClientData(parseInt(id));
-      
+
       if (clientData) {
         setFormData({
           name: clientData.name || '',
@@ -159,26 +161,32 @@ export default function EditClientScreen() {
 
   if (isLoadingData) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar
+          barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+          backgroundColor={colors.background}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-          <Text style={styles.loadingText}>Loading client data...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.muted }]}>Loading client data...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border, paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="#000" />
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Client</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Client</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -192,61 +200,61 @@ export default function EditClientScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Form Section */}
-          <View style={styles.formSection}>
-            <Text style={styles.sectionTitle}>Client Information</Text>
+          <View style={[styles.formSection, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Client Information</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Client Name *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Client Name *</Text>
               <TextInput
-                style={[styles.textInput, errors.name && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.name && styles.inputError]}
                 value={formData.name}
                 onChangeText={(value) => updateFormData('name', value)}
                 placeholder="Enter client name"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="words"
               />
-              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+              {errors.name && <Text style={[styles.errorText, { color: colors.error }]}>{errors.name}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Company Name *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Company Name *</Text>
               <TextInput
-                style={[styles.textInput, errors.company && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.company && styles.inputError]}
                 value={formData.company}
                 onChangeText={(value) => updateFormData('company', value)}
                 placeholder="Enter company name"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="words"
               />
-              {errors.company && <Text style={styles.errorText}>{errors.company}</Text>}
+              {errors.company && <Text style={[styles.errorText, { color: colors.error }]}>{errors.company}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number *</Text>
               <TextInput
-                style={[styles.textInput, errors.number && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.number && styles.inputError]}
                 value={formData.number}
                 onChangeText={(value) => updateFormData('number', value)}
                 placeholder="Enter phone number"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="phone-pad"
               />
-              {errors.number && <Text style={styles.errorText}>{errors.number}</Text>}
+              {errors.number && <Text style={[styles.errorText, { color: colors.error }]}>{errors.number}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Email Address</Text>
               <TextInput
-                style={[styles.textInput, errors.email && styles.inputError]}
+                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.email && styles.inputError]}
                 value={formData.email}
                 onChangeText={(value) => updateFormData('email', value)}
                 placeholder="Enter email address (optional)"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+              {errors.email && <Text style={[styles.errorText, { color: colors.error }]}>{errors.email}</Text>}
             </View>
           </View>
 
@@ -255,16 +263,16 @@ export default function EditClientScreen() {
         </ScrollView>
 
         {/* Bottom Save Button */}
-        <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.bottomButtonContainer, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity
             onPress={handleSubmit}
-            style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+            style={[styles.bottomSaveButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.background} />
             ) : (
-              <Text style={styles.saveButtonText}>Update Client</Text>
+              <Text style={[styles.saveButtonText, { color: colors.background }]}>Update Client</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -276,7 +284,6 @@ export default function EditClientScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   loadingContainer: {
     flex: 1,
@@ -286,16 +293,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
@@ -303,19 +307,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
     flex: 1,
     marginLeft: 15,
   },
   bottomButtonContainer: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   bottomSaveButton: {
-    backgroundColor: '#000',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -325,7 +325,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -339,7 +338,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   formSection: {
-    backgroundColor: '#fff',
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 12,
@@ -348,7 +346,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 20,
   },
   inputGroup: {
@@ -357,18 +354,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#f8f8f8',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#000',
     borderWidth: 1,
-    borderColor: 'transparent',
   },
   inputError: {
     borderColor: '#ff6b6b',
@@ -376,7 +369,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#ff6b6b',
     marginTop: 4,
     marginLeft: 4,
   },

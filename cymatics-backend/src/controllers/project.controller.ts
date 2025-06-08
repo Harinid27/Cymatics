@@ -12,16 +12,26 @@ class ProjectController {
     try {
       const { page, limit } = parsePaginationQuery(req.query);
       const search = parseSearchQuery(req.query);
-      const { type, status, company } = req.query;
+      const { type, status, company, startDate, endDate } = req.query;
 
-      const result = await projectService.getProjects({
+      const options: any = {
         search,
         type: type as string,
         status: status as string,
         company: company as string,
         page,
         limit,
-      });
+      };
+
+      // Only add date parameters if they exist
+      if (startDate) {
+        options.startDate = new Date(startDate as string);
+      }
+      if (endDate) {
+        options.endDate = new Date(endDate as string);
+      }
+
+      const result = await projectService.getProjects(options);
 
       sendSuccessResponse(
         res,
@@ -84,6 +94,7 @@ class ProjectController {
         outFor,
         outClient,
         outsourcingPaid,
+        onedriveLink,
         clientId,
       } = req.body;
 
@@ -112,6 +123,7 @@ class ProjectController {
       if (reference) projectData.reference = reference;
       if (outFor) projectData.outFor = outFor;
       if (outClient) projectData.outClient = outClient;
+      if (onedriveLink) projectData.onedriveLink = onedriveLink;
       if (imagePath) projectData.image = imagePath;
 
       const project = await projectService.createProject(projectData);
@@ -152,6 +164,7 @@ class ProjectController {
         outFor,
         outClient,
         outsourcingPaid,
+        onedriveLink,
         clientId,
       } = req.body;
 
@@ -192,6 +205,7 @@ class ProjectController {
       if (outFor !== undefined) updateData.outFor = outFor || null;
       if (outClient !== undefined) updateData.outClient = outClient || null;
       if (outsourcingPaid !== undefined) updateData.outsourcingPaid = outsourcingPaid;
+      if (onedriveLink !== undefined) updateData.onedriveLink = onedriveLink || null;
       if (clientId !== undefined) updateData.clientId = parseInt(clientId);
       if (imagePath !== undefined) updateData.image = imagePath;
 
@@ -329,6 +343,7 @@ class ProjectController {
         outFor: project.outFor || '',
         outClient: project.outClient || '',
         outsourcingPaid: project.outsourcingPaid,
+        onedriveLink: project.onedriveLink || '',
         clientId: project.clientId,
         image: project.image || null,
         latitude: project.latitude,
@@ -345,6 +360,49 @@ class ProjectController {
     }
   }
 
+  /**
+   * Get project budget analysis
+   */
+  async getProjectBudget(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const projectId = parseInt(id);
+
+      if (isNaN(projectId)) {
+        res.status(400).json({ error: 'Invalid project ID' });
+        return;
+      }
+
+      const budgetAnalysis = await projectService.calculateProjectBudget(projectId);
+      sendSuccessResponse(res, budgetAnalysis, 'Project budget retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get overall profitability analysis
+   */
+  async getProfitabilityAnalysis(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const analysis = await projectService.getProjectProfitabilityAnalysis();
+      sendSuccessResponse(res, analysis, 'Profitability analysis retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Batch update project statuses
+   */
+  async batchUpdateStatuses(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await projectService.batchUpdateProjectStatuses();
+      sendSuccessResponse(res, null, 'Project statuses updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
 
 }
 
