@@ -320,12 +320,16 @@ class ProjectsService {
    */
   async getProjectsByStatus(status: string, page: number = 1, limit: number = 10): Promise<ProjectsResponse | null> {
     try {
+      console.log(`ProjectsService: Fetching projects for status: ${status}`);
       const response = await ApiService.get<ProjectsResponse>(
         `${envConfig.PROJECTS_ENDPOINT}/status/${status}`,
         { page, limit }
       );
 
+      console.log(`ProjectsService: API response for ${status}:`, response);
+
       if (response.success && response.data) {
+        console.log(`ProjectsService: Successfully fetched ${response.data.projects?.length || 0} projects for ${status}`);
         return response.data;
       }
 
@@ -437,9 +441,9 @@ class ProjectsService {
    * Format currency
    */
   formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);

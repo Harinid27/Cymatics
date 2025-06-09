@@ -987,24 +987,23 @@ class ProjectService {
       const where: any = {};
 
       if (status === 'ongoing') {
-        where.status = 'ACTIVE';
-        where.pendingAmt = { gt: 0 };
-      } else if (status === 'pending') {
+        // Include ONLY active/in-progress projects, NOT not-started projects
         where.OR = [
+          { status: 'IN_PROGRESS' },
+          { status: 'ACTIVE' }
+        ];
+      } else if (status === 'pending') {
+        // Include pending, not started, and on-hold projects
+        where.OR = [
+          { status: 'NOT_STARTED' },
           { status: 'PENDING' },
           { status: 'ON_HOLD' },
-          {
-            AND: [
-              { status: { not: 'COMPLETED' } },
-              { pendingAmt: { gt: 0 } }
-            ]
-          }
+          { status: 'DRAFT' }
         ];
       } else if (status === 'completed') {
-        where.OR = [
-          { status: 'COMPLETED' },
-          { pendingAmt: { lte: 0 } }
-        ];
+        // Include ONLY explicitly completed projects
+        // Do NOT include projects based on pending amount alone
+        where.status = 'COMPLETED';
       }
 
       const [projects, total] = await Promise.all([
@@ -1060,13 +1059,32 @@ class ProjectService {
    * Map database status to frontend status
    */
   private mapDatabaseStatusToFrontend(dbStatus: string | null, pendingAmount: number): string {
-    if (dbStatus === 'COMPLETED' || pendingAmount <= 0) {
+    // Explicitly completed projects only
+    if (dbStatus === 'COMPLETED') {
       return 'completed';
-    } else if (dbStatus === 'ACTIVE' && pendingAmount > 0) {
-      return 'ongoing';
-    } else {
+    }
+
+    // NOT_STARTED projects should ALWAYS be pending, regardless of pending amount
+    if (dbStatus === 'NOT_STARTED') {
       return 'pending';
     }
+
+    // Pending projects (pending, on hold, or draft)
+    if (dbStatus === 'PENDING' || dbStatus === 'ON_HOLD' || dbStatus === 'DRAFT') {
+      return 'pending';
+    }
+
+    // Ongoing projects (active or in progress)
+    if (dbStatus === 'IN_PROGRESS' || dbStatus === 'ACTIVE') {
+      return 'ongoing';
+    }
+
+    // Default fallback for unknown statuses
+    if (pendingAmount > 0) {
+      return 'pending';
+    }
+
+    return 'completed';
   }
 
   /**

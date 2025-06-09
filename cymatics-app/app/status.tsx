@@ -36,18 +36,37 @@ export default function StatusScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Load projects on component mount and when tab changes
   useEffect(() => {
     loadProjects();
   }, [activeTab]);
 
-  const loadProjects = async () => {
+  // Set up real-time updates with polling every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isLoading && !isRefreshing) {
+        loadProjects(true); // Silent refresh
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [activeTab, isLoading, isRefreshing]);
+
+  const loadProjects = async (silent: boolean = false) => {
     try {
-      setError(null);
+      if (!silent) {
+        setError(null);
+      }
+
+      console.log(`Loading projects for status: ${activeTab}`);
       const response = await ProjectsService.getProjectsByStatus(activeTab);
+      console.log(`Status screen API response for ${activeTab}:`, response);
 
       if (response && response.projects) {
+        console.log(`Found ${response.projects.length} projects for ${activeTab} status`);
+
         // Transform projects data to include pending amount calculation
         const transformedProjects = response.projects.map((project: any) => ({
           id: project.id,
@@ -58,16 +77,31 @@ export default function StatusScreen() {
           pendingAmount: calculatePendingAmount(project),
         }));
 
+        console.log('Transformed projects:', transformedProjects);
         setProjects(transformedProjects);
+        setLastUpdated(new Date());
+
+        // Clear any previous errors on successful load
+        if (error) {
+          setError(null);
+        }
       } else {
+        console.log(`No projects found for ${activeTab} status`);
         setProjects([]);
+        if (!silent) {
+          setError(`No ${activeTab} projects found.`);
+        }
       }
     } catch (error) {
       console.error('Error loading projects:', error);
-      setError('Failed to load projects. Please try again.');
-      setProjects([]);
+      if (!silent) {
+        setError('Failed to load projects. Please check your connection and try again.');
+        setProjects([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -115,7 +149,7 @@ export default function StatusScreen() {
         </Text>
       </View>
       <View style={styles.amountContainer}>
-        <Text style={[styles.totalAmount, { color: colors.text }]}>${item.amount.toLocaleString()}</Text>
+        <Text style={[styles.totalAmount, { color: colors.text }]}>₹{item.amount.toLocaleString()}</Text>
         <Text style={[styles.statusBadge, { color: colors.muted, backgroundColor: colors.surface }]}>{item.status.toUpperCase()}</Text>
       </View>
     </View>

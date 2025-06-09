@@ -46,6 +46,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
       <StatusBar
         barStyle={headerBgColor === '#ffffff' ? 'dark-content' : 'light-content'}
         backgroundColor={headerBgColor}
+        translucent={false}
       />
       <View
         style={[
@@ -53,8 +54,10 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
           {
             backgroundColor: headerBgColor,
             borderBottomColor: colors.border,
-            paddingTop: insets.top,
+            paddingTop: Math.max(insets.top, 0), // Use full safe area top inset
             borderBottomWidth: showBorder ? 1 : 0,
+            position: 'relative',
+            zIndex: 1000, // Ensure header is on top
           }
         ]}
       >
@@ -115,8 +118,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 56,
+    paddingVertical: 8, // Reduced from 12 to 8 for smaller header
+    minHeight: 44, // Reduced from 56 to 44 for smaller header
   },
   leftSection: {
     flexDirection: 'row',

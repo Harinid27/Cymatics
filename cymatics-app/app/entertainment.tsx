@@ -20,12 +20,14 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 import CustomHeader from '@/src/components/CustomHeader';
 
 export default function EntertainmentScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [entertainment, setEntertainment] = useState<Entertainment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,10 +132,10 @@ export default function EntertainmentScreen() {
   };
 
   const handleDeleteEntertainment = (entertainment: Entertainment) => {
-    Alert.alert(
-      'Delete Entertainment',
-      `Are you sure you want to delete "${entertainment.name}"? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Entertainment',
+      message: `Are you sure you want to delete "${entertainment.name}"? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -147,24 +149,33 @@ export default function EntertainmentScreen() {
               const success = await EntertainmentService.deleteEntertainment(entertainment.id);
 
               if (success) {
-                const updatedEntertainment = entertainment.filter(e => e.id !== item.id);
+                const updatedEntertainment = entertainment.filter(e => e.id !== entertainment.id);
                 setEntertainment(updatedEntertainment);
                 setFilteredEntertainment(updatedEntertainment);
 
-                Alert.alert('Success', 'Entertainment deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Entertainment deleted successfully',
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete entertainment. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete entertainment. Please try again.',
+                });
               }
             } catch (error) {
               console.error('Delete entertainment error:', error);
-              Alert.alert('Error', 'Failed to delete entertainment. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete entertainment. Please try again.',
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAddEntertainment = () => {
@@ -259,14 +270,20 @@ export default function EntertainmentScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CustomHeader
         title="Entertainment"
-        subtitle={`${(filteredEntertainment || []).length} entr${(filteredEntertainment || []).length !== 1 ? 'ies' : 'y'}`}
         showBackButton={true}
         onBackPress={handleBackPress}
+        rightComponent={
+          <View style={styles.headerCountContainer}>
+            <Text style={[styles.headerCountText, { color: colors.muted }]}>
+              {(filteredEntertainment || []).length} entr{(filteredEntertainment || []).length !== 1 ? 'ies' : 'y'}
+            </Text>
+          </View>
+        }
       />
 
       {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialIcons name="search" size={20} color={colors.muted} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -288,18 +305,18 @@ export default function EntertainmentScreen() {
               <MaterialIcons name="clear" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={handleFilterPress}
+          >
+            <MaterialIcons name="filter-list" size={20} color={colors.text} />
+            {getActiveFilterCount() > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.filterBadgeText, { color: colors.background }]}>{getActiveFilterCount()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: colors.surface }]}
-          onPress={handleFilterPress}
-        >
-          <MaterialIcons name="filter-list" size={24} color={colors.text} />
-          {getActiveFilterCount() > 0 && (
-            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.filterBadgeText, { color: colors.background }]}>{getActiveFilterCount()}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -327,14 +344,6 @@ export default function EntertainmentScreen() {
 
         {/* Entertainment Section */}
         <View style={styles.entertainmentSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Entertainment Log</Text>
-            <Text style={[styles.entertainmentCount, { color: colors.muted }]}>
-              {(filteredEntertainment || []).length} entr{(filteredEntertainment || []).length !== 1 ? 'ies' : 'y'}
-              {getActiveFilterCount() > 0 && ' (filtered)'}
-            </Text>
-          </View>
-
           {/* Content */}
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -378,7 +387,7 @@ export default function EntertainmentScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Filter Entertainment</Text>
               <TouchableOpacity
                 onPress={() => setIsFilterModalVisible(false)}
@@ -468,7 +477,7 @@ export default function EntertainmentScreen() {
               </View>
             </ScrollView>
 
-            <View style={styles.modalActions}>
+            <View style={[styles.modalActions, { borderTopColor: colors.border }]}>
               <TouchableOpacity
                 style={[styles.clearButton, { backgroundColor: colors.surface }]}
                 onPress={clearFilters}
@@ -488,6 +497,9 @@ export default function EntertainmentScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -497,20 +509,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
     marginBottom: 10,
+    marginHorizontal: 10,
   },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 10,
     paddingHorizontal: 15,
-    paddingVertical: 12,
-    marginRight: 15,
+    paddingVertical: 7,
     borderWidth: 1,
   },
   searchInput: {
@@ -526,9 +535,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filterButton: {
-    padding: 8,
+    padding: 4,
+    marginLeft: 8,
     position: 'relative',
-    borderRadius: 8,
   },
   filterBadge: {
     position: 'absolute',
@@ -572,20 +581,6 @@ const styles = StyleSheet.create({
   entertainmentSection: {
     marginHorizontal: 20,
     marginTop: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  entertainmentCount: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   entertainmentList: {
     gap: 10,
@@ -656,11 +651,18 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
   },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   editButton: {
     padding: 4,
@@ -728,7 +730,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
     fontSize: 18,
@@ -767,7 +768,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
     gap: 12,
   },
   clearButton: {

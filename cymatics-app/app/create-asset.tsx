@@ -19,9 +19,11 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import CustomHeader from '@/src/components/CustomHeader';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function CreateAssetScreen() {
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -91,7 +93,10 @@ export default function CreateAssetScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -105,22 +110,28 @@ export default function CreateAssetScreen() {
       const result = await AssetsService.createAsset(assetData);
 
       if (result) {
-        Alert.alert(
-          'Success',
-          'Asset created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Asset created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create asset. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create asset. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Create asset error:', error);
-      Alert.alert('Error', 'Failed to create asset. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create asset. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -345,7 +356,7 @@ export default function CreateAssetScreen() {
       {showTypePicker && (
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Select Asset Type</Text>
               <TouchableOpacity onPress={() => setShowTypePicker(false)}>
                 <MaterialIcons name="close" size={24} color={colors.text} />
@@ -357,6 +368,7 @@ export default function CreateAssetScreen() {
                   key={type}
                   style={[
                     styles.typeOption,
+                    { borderBottomColor: colors.border },
                     formData.type === type && { backgroundColor: colors.surface }
                   ]}
                   onPress={() => {
@@ -379,6 +391,9 @@ export default function CreateAssetScreen() {
           </View>
         </View>
       )}
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -488,7 +503,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
     fontSize: 18,
@@ -503,7 +517,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
   },
   typeOptionText: {
     fontSize: 16,

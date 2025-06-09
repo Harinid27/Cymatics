@@ -20,12 +20,14 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 import CustomHeader from '@/src/components/CustomHeader';
 
 export default function AssetsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,10 +117,10 @@ export default function AssetsScreen() {
   };
 
   const handleDeleteAsset = (asset: Asset) => {
-    Alert.alert(
-      'Delete Asset',
-      `Are you sure you want to delete "${asset.name}"? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Asset',
+      message: `Are you sure you want to delete "${asset.name}"? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -136,20 +138,29 @@ export default function AssetsScreen() {
                 setAssets(updatedAssets);
                 setFilteredAssets(updatedAssets);
 
-                Alert.alert('Success', 'Asset deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Asset deleted successfully',
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete asset. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete asset. Please try again.',
+                });
               }
             } catch (error) {
               console.error('Delete asset error:', error);
-              Alert.alert('Error', 'Failed to delete asset. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete asset. Please try again.',
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAddAsset = () => {
@@ -234,13 +245,19 @@ export default function AssetsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CustomHeader
         title="Assets"
-        subtitle={`${(filteredAssets || []).length} asset${(filteredAssets || []).length !== 1 ? 's' : ''}`}
         showBackButton={true}
         onBackPress={handleBackPress}
+        rightComponent={
+          <View style={styles.headerCountContainer}>
+            <Text style={[styles.headerCountText, { color: colors.muted }]}>
+              {(filteredAssets || []).length} asset{(filteredAssets || []).length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        }
       />
 
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <MaterialIcons name="search" size={20} color={colors.muted} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
@@ -263,7 +280,7 @@ export default function AssetsScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: colors.surface }]}
+          style={[styles.filterButton, { backgroundColor: 'transparent' }]}
           onPress={handleFilterPress}
         >
           <MaterialIcons name="filter-list" size={20} color={colors.text} />
@@ -300,14 +317,6 @@ export default function AssetsScreen() {
 
         {/* Assets Section */}
         <View style={styles.assetsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Asset Inventory</Text>
-            <Text style={[styles.assetCount, { color: colors.muted }]}>
-              {(filteredAssets || []).length} asset{(filteredAssets || []).length !== 1 ? 's' : ''}
-              {selectedType !== 'all' && ` (${selectedType})`}
-            </Text>
-          </View>
-
           {/* Content */}
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -396,6 +405,9 @@ export default function AssetsScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -407,10 +419,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 30,
     marginTop: 15,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
   },
@@ -474,20 +486,6 @@ const styles = StyleSheet.create({
   assetsSection: {
     marginHorizontal: 20,
     marginTop: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  assetCount: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   assetsList: {
     gap: 10,
@@ -557,6 +555,14 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   editButton: {
     padding: 4,

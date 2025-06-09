@@ -17,9 +17,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { paymentsService, CreatePaymentData } from '@/src/services/PaymentsService';
 import ClientService, { Client } from '@/src/services/ClientsService';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function CreatePayment() {
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const insets = useSafeAreaInsets();
 
   // Form state
@@ -53,7 +55,10 @@ export default function CreatePayment() {
       }
     } catch (error) {
       console.error('Error loading clients:', error);
-      Alert.alert('Error', 'Failed to load clients. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load clients. Please try again.',
+      });
     } finally {
       setIsLoadingClients(false);
     }
@@ -85,17 +90,26 @@ export default function CreatePayment() {
 
   const validateForm = (): boolean => {
     if (!selectedClient) {
-      Alert.alert('Validation Error', 'Please select a client.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please select a client.',
+      });
       return false;
     }
 
     if (formData.amount <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please enter a valid amount.',
+      });
       return false;
     }
 
     if (!formData.description.trim()) {
-      Alert.alert('Validation Error', 'Please enter a description.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please enter a description.',
+      });
       return false;
     }
 
@@ -111,22 +125,28 @@ export default function CreatePayment() {
       const payment = await paymentsService.createPayment(formData);
 
       if (payment) {
-        Alert.alert(
-          'Success',
-          'Payment created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Payment created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create payment. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create payment. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error creating payment:', error);
-      Alert.alert('Error', 'Failed to create payment. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create payment. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -239,7 +259,7 @@ export default function CreatePayment() {
               onChangeText={handleDueDateChange}
             />
             <Text style={[styles.helperText, { color: colors.muted }]}>
-              Format: YYYY-MM-DD (e.g., 2024-12-31)
+              Format: YYYY-MM-DD (e.g., 2024-12-31 for December 31, 2024)
             </Text>
           </View>
         </View>
@@ -262,6 +282,9 @@ export default function CreatePayment() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

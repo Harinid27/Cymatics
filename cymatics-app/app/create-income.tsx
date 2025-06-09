@@ -19,11 +19,13 @@ import projectsService, { Project } from '@/src/services/ProjectsService';
 import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function CreateIncomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   // Form state
   const [formData, setFormData] = useState<CreateIncomeData>({
@@ -58,7 +60,10 @@ export default function CreateIncomeScreen() {
       }
     } catch (error) {
       console.error('Error loading projects:', error);
-      Alert.alert('Error', 'Failed to load projects. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load projects. Please try again.',
+      });
     } finally {
       setIsLoadingProjects(false);
     }
@@ -108,7 +113,10 @@ export default function CreateIncomeScreen() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -123,22 +131,28 @@ export default function CreateIncomeScreen() {
       const newIncome = await financialService.createIncome(incomeData);
 
       if (newIncome) {
-        Alert.alert(
-          'Success',
-          'Income entry created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Income entry created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create income entry. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create income entry. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error creating income:', error);
-      Alert.alert('Error', 'Failed to create income entry. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create income entry. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +213,7 @@ export default function CreateIncomeScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($) *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount (₹) *</Text>
             <TextInput
               style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.amount && styles.inputError]}
               value={formData.amount.toString()}
@@ -311,6 +325,9 @@ export default function CreateIncomeScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

@@ -424,17 +424,23 @@ export default function ProjectsScreen() {
       />
       <CustomHeader
         title="Projects"
-        subtitle={`${filteredProjects.length} ${filteredProjects.length === 1 ? 'project' : 'projects'}`}
         leftComponent={
           <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
             <MaterialIcons name="menu" size={24} color={colors.text} />
           </TouchableOpacity>
         }
+        rightComponent={
+          <View style={styles.headerCountContainer}>
+            <Text style={[styles.headerCountText, { color: colors.muted }]}>
+              {filteredProjects.length} {filteredProjects.length === 1 ? 'project' : 'projects'}
+            </Text>
+          </View>
+        }
       />
 
       {/* Search and Filter Bar */}
       <View style={[styles.searchFilterContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialIcons name="search" size={20} color={colors.muted} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -444,19 +450,19 @@ export default function ProjectsScreen() {
             placeholderTextColor={colors.placeholder}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
+            <TouchableOpacity onPress={() => handleSearch('')} style={styles.clearButton}>
               <MaterialIcons name="clear" size={20} color={colors.muted} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'transparent' }]} onPress={handleFilterPress}>
+            <MaterialIcons name="filter-list" size={20} color={colors.text} />
+            {selectedFilters.length > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.filterBadgeText, { color: colors.background }]}>{selectedFilters.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surface }]} onPress={handleFilterPress}>
-          <MaterialIcons name="filter-list" size={20} color={colors.text} />
-          {selectedFilters.length > 0 && (
-            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.filterBadgeText, { color: colors.background }]}>{selectedFilters.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
 
@@ -612,11 +618,20 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
+    marginHorizontal: 10,
   },
   searchBar: {
     flex: 1,
@@ -624,8 +639,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 10,
     paddingHorizontal: 15,
-    paddingVertical: 12,
-    marginRight: 15,
+    paddingVertical: 7,
     borderWidth: 1,
   },
   searchInput: {
@@ -633,10 +647,13 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 16,
   },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
   filterButton: {
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 12,
+    padding: 8,
+    marginLeft: 8,
     position: 'relative',
   },
   filterBadge: {

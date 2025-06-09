@@ -16,6 +16,7 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 import MapView from './MapView';
 import MapsService, { Coordinates, PlaceResult } from '../../services/MapsService';
 
@@ -38,6 +39,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   initialLocation,
   title = 'Select Location',
 }) => {
+  const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCoordinates, setSelectedCoordinates] = useState<Coordinates | null>(
     initialLocation || null
@@ -54,10 +56,9 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       setSelectedCoordinates(initialLocation);
       reverseGeocodeLocation(initialLocation);
     } else {
-      // Set default location to Bangalore if no initial location
-      const defaultLocation = { latitude: 12.9716, longitude: 77.5946 };
-      setSelectedCoordinates(defaultLocation);
-      reverseGeocodeLocation(defaultLocation);
+      // Don't set any default location - let user choose
+      setSelectedCoordinates(null);
+      setSelectedAddress('');
     }
   }, [initialLocation]);
 
@@ -217,19 +218,19 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <MaterialIcons name="close" size={24} color="#007AFF" />
+            <MaterialIcons name="close" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
           <TouchableOpacity
             onPress={handleConfirm}
             style={[styles.headerButton, !selectedCoordinates && styles.disabledButton]}
             disabled={!selectedCoordinates}
           >
-            <Text style={[styles.confirmText, !selectedCoordinates && styles.disabledText]}>
+            <Text style={[styles.confirmText, { color: colors.primary }, !selectedCoordinates && styles.disabledText]}>
               Confirm
             </Text>
           </TouchableOpacity>
@@ -237,48 +238,49 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <MaterialIcons name="search" size={20} color="#666" style={styles.searchIcon} />
+          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <MaterialIcons name="search" size={20} color={colors.muted} style={styles.searchIcon} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search for a location..."
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
             {isSearching && (
-              <ActivityIndicator size="small" color="#007AFF" style={styles.searchLoader} />
+              <ActivityIndicator size="small" color={colors.primary} style={styles.searchLoader} />
             )}
           </View>
 
           <TouchableOpacity
             onPress={handleCurrentLocation}
-            style={[styles.currentLocationButton, isGettingCurrentLocation && styles.disabledButton]}
+            style={[styles.currentLocationButton, { backgroundColor: colors.surface }, isGettingCurrentLocation && styles.disabledButton]}
             disabled={isGettingCurrentLocation}
           >
             {isGettingCurrentLocation ? (
-              <ActivityIndicator size="small" color="#007AFF" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <MaterialIcons name="my-location" size={20} color="#007AFF" />
+              <MaterialIcons name="my-location" size={20} color={colors.primary} />
             )}
           </TouchableOpacity>
         </View>
 
         {/* Search Results */}
         {showSearchResults && searchResults.length > 0 && (
-          <View style={styles.searchResults}>
+          <View style={[styles.searchResults, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <ScrollView style={styles.searchResultsList}>
               {searchResults.map((place, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.searchResultItem}
+                  style={[styles.searchResultItem, { borderBottomColor: colors.border }]}
                   onPress={() => handlePlaceSelect(place)}
                 >
-                  <MaterialIcons name="place" size={20} color="#666" />
+                  <MaterialIcons name="place" size={20} color={colors.muted} />
                   <View style={styles.searchResultText}>
-                    <Text style={styles.searchResultName}>{place.name}</Text>
-                    <Text style={styles.searchResultVicinity}>{place.vicinity}</Text>
+                    <Text style={[styles.searchResultName, { color: colors.text }]}>{place.name}</Text>
+                    <Text style={[styles.searchResultVicinity, { color: colors.muted }]}>{place.vicinity}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -294,26 +296,32 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
               coordinate: selectedCoordinates,
               title: 'Selected Location',
               description: selectedAddress,
-              color: '#007AFF',
+              color: colors.primary,
             }] : []}
+            initialRegion={!selectedCoordinates ? {
+              latitude: 40.7128,
+              longitude: -74.0060,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            } : undefined}
             onMapPress={handleMapPress}
-            showLocationButton={false}
+            showLocationButton={true}
             style={styles.map}
           />
         </View>
 
         {/* Selected Location Info */}
         {selectedCoordinates && (
-          <View style={styles.selectedLocationInfo}>
+          <View style={[styles.selectedLocationInfo, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
             <View style={styles.selectedLocationHeader}>
-              <MaterialIcons name="place" size={20} color="#007AFF" />
-              <Text style={styles.selectedLocationTitle}>Selected Location</Text>
+              <MaterialIcons name="place" size={20} color={colors.primary} />
+              <Text style={[styles.selectedLocationTitle, { color: colors.text }]}>Selected Location</Text>
               {isGeocodingReverse && (
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color={colors.primary} />
               )}
             </View>
-            <Text style={styles.selectedLocationAddress}>{selectedAddress}</Text>
-            <Text style={styles.selectedLocationCoords}>
+            <Text style={[styles.selectedLocationAddress, { color: colors.text }]}>{selectedAddress}</Text>
+            <Text style={[styles.selectedLocationCoords, { color: colors.muted }]}>
               {MapsService.formatCoordinates(selectedCoordinates.latitude, selectedCoordinates.longitude)}
             </Text>
           </View>
@@ -326,7 +334,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -335,7 +342,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
     paddingTop: 50, // Account for status bar
   },
   headerButton: {
@@ -344,33 +350,32 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
   },
   confirmText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF',
   },
   disabledButton: {
     opacity: 0.5,
   },
   disabledText: {
-    color: '#999',
+    opacity: 0.5,
   },
   searchContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: 'center',
+    marginHorizontal: 10,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     borderRadius: 8,
     paddingHorizontal: 12,
-    height: 40,
+    height: 35,
+    borderWidth: 1,
   },
   searchIcon: {
     marginRight: 8,
@@ -378,7 +383,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
   },
   searchLoader: {
     marginLeft: 8,
@@ -386,14 +390,11 @@ const styles = StyleSheet.create({
   currentLocationButton: {
     marginLeft: 12,
     padding: 8,
-    backgroundColor: '#F5F5F5',
     borderRadius: 8,
   },
   searchResults: {
     maxHeight: 200,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   searchResultsList: {
     flex: 1,
@@ -404,7 +405,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   searchResultText: {
     marginLeft: 12,
@@ -413,11 +413,9 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000',
   },
   searchResultVicinity: {
     fontSize: 14,
-    color: '#666',
     marginTop: 2,
   },
   mapContainer: {
@@ -427,10 +425,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedLocationInfo: {
-    backgroundColor: '#F8F9FA',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
   },
   selectedLocationHeader: {
     flexDirection: 'row',
@@ -440,18 +436,15 @@ const styles = StyleSheet.create({
   selectedLocationTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginLeft: 8,
     flex: 1,
   },
   selectedLocationAddress: {
     fontSize: 14,
-    color: '#333',
     marginBottom: 4,
   },
   selectedLocationCoords: {
     fontSize: 12,
-    color: '#666',
   },
 });
 

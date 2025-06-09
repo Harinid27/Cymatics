@@ -140,34 +140,37 @@ export default function IncomeScreen() {
 
     switch (tab) {
       case 'Ongoing':
-        // Project income from active/ongoing projects
+        // Project income from ONLY active/in-progress projects (NOT not-started)
         filtered = filtered.filter(income => {
           if (!income.projectIncome || !income.project) return false;
 
           const status = income.project.status?.toLowerCase() || '';
-          const isActiveStatus = status === 'active' || status === 'ongoing' || status === 'in_progress';
+          const isActiveStatus = status === 'active' || status === 'ongoing' || status === 'in_progress' || status === 'in-progress';
 
-          console.log(`Income ${income.id}: status=${status}, isActive=${isActiveStatus}`);
+          // Only include if status is explicitly active/ongoing/in-progress
+          // Do NOT include not-started projects even if they have pending amounts
+
+          console.log(`Income ${income.id}: status=${status}, isOngoing=${isActiveStatus}`);
           return isActiveStatus;
         });
         break;
 
       case 'Pending':
-        // Project income from pending projects OR projects with pending amounts
+        // Project income from pending projects (not started, pending, on hold, draft)
         filtered = filtered.filter(income => {
           if (!income.project) return false;
 
           const status = income.project.status?.toLowerCase() || '';
-          const isPendingStatus = status === 'pending' || status === 'on_hold' || status === 'draft';
-          const hasPendingAmount = income.project.pendingAmt && income.project.pendingAmt > 0;
+          const isPendingStatus = status === 'pending' || status === 'on_hold' || status === 'on-hold' ||
+                                 status === 'draft' || status === 'not_started' || status === 'not-started';
 
-          console.log(`Income ${income.id}: status=${status}, pendingAmt=${income.project.pendingAmt}, isPending=${isPendingStatus || hasPendingAmount}`);
-          return isPendingStatus || hasPendingAmount;
+          console.log(`Income ${income.id}: status=${status}, isPending=${isPendingStatus}`);
+          return isPendingStatus;
         });
         break;
 
       case 'Completed':
-        // Non-project income OR completed project income OR projects with no pending amount
+        // Non-project income OR ONLY explicitly completed project income
         filtered = filtered.filter(income => {
           // Non-project income is always considered completed
           if (!income.projectIncome) {
@@ -179,10 +182,9 @@ export default function IncomeScreen() {
 
           const status = income.project.status?.toLowerCase() || '';
           const isCompletedStatus = status === 'completed' || status === 'finished';
-          const noPendingAmount = !income.project.pendingAmt || income.project.pendingAmt <= 0;
 
-          console.log(`Income ${income.id}: status=${status}, pendingAmt=${income.project.pendingAmt}, isCompleted=${isCompletedStatus || noPendingAmount}`);
-          return isCompletedStatus || noPendingAmount;
+          console.log(`Income ${income.id}: status=${status}, isCompleted=${isCompletedStatus}`);
+          return isCompletedStatus;
         });
         break;
 
@@ -220,7 +222,7 @@ export default function IncomeScreen() {
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -375,10 +377,15 @@ export default function IncomeScreen() {
           <MaterialIcons name="menu" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Income</Text>
+        <View style={styles.headerCountContainer}>
+          <Text style={[styles.headerCountText, { color: colors.muted }]}>
+            {(filteredIncomes || []).length} income{(filteredIncomes || []).length !== 1 ? 's' : ''}
+          </Text>
+        </View>
       </View>
 
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <MaterialIcons name="search" size={20} color={colors.muted} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
@@ -401,7 +408,7 @@ export default function IncomeScreen() {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: colors.surface }]}
+          style={[styles.filterButton, { backgroundColor: 'transparent' }]}
           onPress={handleFilterPress}
         >
           <MaterialIcons name="filter-list" size={20} color={colors.text} />
@@ -742,6 +749,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
@@ -753,13 +761,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 30,
     marginTop: 15,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
   },

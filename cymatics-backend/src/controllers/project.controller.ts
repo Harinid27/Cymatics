@@ -276,14 +276,20 @@ class ProjectController {
       const { status } = req.params;
       const { page = 1, limit = 10 } = req.query;
 
+      console.log(`Controller: Getting projects by status: ${status}, page: ${page}, limit: ${limit}`);
+
       const result = await projectService.getProjectsByStatus(
         status,
         parseInt(page as string),
         parseInt(limit as string)
       );
 
+      console.log(`Controller: Found ${result.projects.length} projects for status ${status}`);
+      console.log('Controller: Project details:', result.projects.map(p => ({ id: p.id, name: p.name, status: p.status })));
+
       sendSuccessResponse(res, result, `${status} projects retrieved successfully`, 200);
     } catch (error) {
+      console.error(`Controller: Error getting projects by status ${req.params.status}:`, error);
       next(error);
     }
   }

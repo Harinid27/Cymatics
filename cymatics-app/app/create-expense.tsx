@@ -19,6 +19,7 @@ import projectsService, { Project } from '@/src/services/ProjectsService';
 import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 // Expense categories with icons (matching the expense screen)
 const EXPENSE_CATEGORIES = [
@@ -43,6 +44,7 @@ export default function CreateExpenseScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   // Form state
   const [formData, setFormData] = useState<CreateExpenseData>({
@@ -79,7 +81,10 @@ export default function CreateExpenseScreen() {
       }
     } catch (error) {
       console.error('Error loading projects:', error);
-      Alert.alert('Error', 'Failed to load projects. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load projects. Please try again.',
+      });
     } finally {
       setIsLoadingProjects(false);
     }
@@ -133,7 +138,10 @@ export default function CreateExpenseScreen() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -148,22 +156,28 @@ export default function CreateExpenseScreen() {
       const newExpense = await financialService.createExpense(expenseData);
 
       if (newExpense) {
-        Alert.alert(
-          'Success',
-          'Expense entry created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Expense entry created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create expense entry. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create expense entry. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error creating expense:', error);
-      Alert.alert('Error', 'Failed to create expense entry. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create expense entry. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -277,7 +291,7 @@ export default function CreateExpenseScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($) *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount (₹) *</Text>
             <TextInput
               style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.amount && styles.inputError]}
               value={formData.amount.toString()}
@@ -389,6 +403,9 @@ export default function CreateExpenseScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

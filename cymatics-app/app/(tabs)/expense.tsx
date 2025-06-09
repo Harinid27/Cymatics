@@ -21,12 +21,14 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 import ExpenseDetailModal from '@/src/components/modals/ExpenseDetailModal';
 
 export default function ExpenseScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +113,7 @@ export default function ExpenseScreen() {
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -218,10 +220,10 @@ export default function ExpenseScreen() {
   };
 
   const handleDeleteExpense = (expense: Expense) => {
-    Alert.alert(
-      'Delete Expense',
-      `Are you sure you want to delete this expense of ${formatCurrency(expense.amount)} for ${expense.category}? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Expense',
+      message: `Are you sure you want to delete this expense of ${formatCurrency(expense.amount)} for ${expense.category}? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -240,20 +242,29 @@ export default function ExpenseScreen() {
                 setExpenses(updatedExpenses);
                 applyFilters(updatedExpenses, selectedCategory);
 
-                Alert.alert('Success', 'Expense deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Expense deleted successfully',
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete expense. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete expense. Please try again.',
+                });
               }
             } catch (error) {
               console.error('Delete expense error:', error);
-              Alert.alert('Error', 'Failed to delete expense. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete expense. Please try again.',
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAddExpense = () => {
@@ -319,10 +330,15 @@ export default function ExpenseScreen() {
           <MaterialIcons name="menu" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Expense</Text>
+        <View style={styles.headerCountContainer}>
+          <Text style={[styles.headerCountText, { color: colors.muted }]}>
+            {(filteredExpenses || []).length} expense{(filteredExpenses || []).length !== 1 ? 's' : ''}
+          </Text>
+        </View>
       </View>
 
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <MaterialIcons name="search" size={20} color={colors.muted} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
@@ -344,7 +360,7 @@ export default function ExpenseScreen() {
             <MaterialIcons name="clear" size={20} color={colors.muted} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.surface }]} onPress={handleFilterPress}>
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: 'transparent' }]} onPress={handleFilterPress}>
           <MaterialIcons name="filter-list" size={20} color={colors.text} />
           {selectedFilters.length > 0 && (
             <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
@@ -494,6 +510,9 @@ export default function ExpenseScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -506,6 +525,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 15,
     backgroundColor: '#fff',
@@ -519,13 +539,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
   },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 30,
     marginTop: 15,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
   },

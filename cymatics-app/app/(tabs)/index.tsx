@@ -9,7 +9,6 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
@@ -51,9 +50,6 @@ export default function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chartsLoading, setChartsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredTodaySchedule, setFilteredTodaySchedule] = useState<TodaySchedule[]>([]);
-  const [filteredUpcomingShoots, setFilteredUpcomingShoots] = useState<UpcomingShoot[]>([]);
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -75,27 +71,9 @@ export default function DashboardScreen() {
     router.push('/profile');
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
 
-    // Filter today's schedule
-    const filteredSchedule = todaySchedule.filter(schedule =>
-      schedule.title.toLowerCase().includes(query.toLowerCase()) ||
-      (schedule.client && schedule.client.toLowerCase().includes(query.toLowerCase())) ||
-      (schedule.projectCode && schedule.projectCode.toLowerCase().includes(query.toLowerCase())) ||
-      (schedule.location && schedule.location.toLowerCase().includes(query.toLowerCase()))
-    );
-    setFilteredTodaySchedule(filteredSchedule);
 
-    // Filter upcoming shoots
-    const filteredShoots = upcomingShoots.filter(shoot =>
-      (shoot.type && shoot.type.toLowerCase().includes(query.toLowerCase())) ||
-      (shoot.client?.company && shoot.client.company.toLowerCase().includes(query.toLowerCase())) ||
-      (shoot.company && shoot.company.toLowerCase().includes(query.toLowerCase())) ||
-      (shoot.code && shoot.code.toLowerCase().includes(query.toLowerCase()))
-    );
-    setFilteredUpcomingShoots(filteredShoots);
-  };
+
 
 
 
@@ -127,9 +105,7 @@ export default function DashboardScreen() {
       setMonthlyExpensesStackedChart(data.monthlyExpensesStackedChart);
       setCategoryExpensesChart(data.categoryExpensesChart);
 
-      // Initialize filtered data
-      setFilteredTodaySchedule(data.todaySchedule);
-      setFilteredUpcomingShoots(data.upcomingShoots);
+
 
       // Only set error if ALL data is missing (indicating connection issue)
       if (!data.stats && data.todaySchedule.length === 0 && data.upcomingShoots.length === 0 &&
@@ -159,9 +135,9 @@ export default function DashboardScreen() {
 
   // Format currency
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -170,12 +146,12 @@ export default function DashboardScreen() {
   // Format date and time
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: '2-digit',
-    }) + ' | ' + date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }) + ' at ' + date.toLocaleTimeString('en-IN', {
+      hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     });
@@ -185,13 +161,13 @@ export default function DashboardScreen() {
   const formatShootDate = (dateString: string): { date: string; time: string } => {
     const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
+      date: date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
       }),
-      time: date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
+      time: date.toLocaleTimeString('en-IN', {
+        hour: 'numeric',
         minute: '2-digit',
         hour12: true,
       }),
@@ -220,25 +196,8 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* Fixed Content - Search Bar, Status Nav, and Income Cards */}
+      {/* Fixed Content - Status Nav and Income Cards */}
       <View style={[styles.fixedContent, { backgroundColor: colors.background }]}>
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search projects, clients..."
-            placeholderTextColor={colors.muted}
-            value={searchQuery}
-            onChangeText={handleSearch}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <IconSymbol name="xmark.circle.fill" size={20} color={colors.muted} />
-            </TouchableOpacity>
-          )}
-        </View>
 
         {/* Status Navigation */}
         <View style={styles.statusNav}>
@@ -282,21 +241,21 @@ export default function DashboardScreen() {
                 <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.statLabel, { color: colors.muted }]}>Overall Income</Text>
                   <Text style={[styles.statValue, { color: colors.text }]}>
-                    {dashboardStats ? formatCurrency(dashboardStats.totalIncome) : '$0'}
+                    {dashboardStats ? formatCurrency(dashboardStats.totalIncome) : '₹0'}
                   </Text>
                   <Text style={[styles.statChange, { color: colors.muted }]}>Total earned</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.statLabel, { color: colors.muted }]}>Total Expense</Text>
                   <Text style={[styles.statValue, { color: colors.text }]}>
-                    {dashboardStats ? formatCurrency(dashboardStats.totalExpense) : '$0'}
+                    {dashboardStats ? formatCurrency(dashboardStats.totalExpense) : '₹0'}
                   </Text>
                   <Text style={[styles.statChange, { color: colors.muted }]}>Total spent</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <Text style={[styles.statLabel, { color: colors.muted }]}>Current Balance</Text>
                   <Text style={[styles.statValue, { color: colors.text }]}>
-                    {dashboardStats ? formatCurrency(dashboardStats.currentBalance) : '$0'}
+                    {dashboardStats ? formatCurrency(dashboardStats.currentBalance) : '₹0'}
                   </Text>
                   <Text style={[styles.statChange, { color: colors.muted }]}>Available</Text>
                 </View>
@@ -340,8 +299,8 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {(searchQuery ? filteredTodaySchedule : todaySchedule).length > 0 ? (
-            (searchQuery ? filteredTodaySchedule : todaySchedule).slice(0, 1).map((schedule) => (
+          {todaySchedule.length > 0 ? (
+            todaySchedule.slice(0, 1).map((schedule) => (
               <View key={schedule.id} style={[styles.shootCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.shootImage}>
                   <IconSymbol name="camera.fill" size={40} color={colors.primary} />
@@ -382,8 +341,8 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {(searchQuery ? filteredUpcomingShoots : upcomingShoots).length > 0 ? (
-            (searchQuery ? filteredUpcomingShoots : upcomingShoots).slice(0, 3).map((shoot) => {
+          {upcomingShoots.length > 0 ? (
+            upcomingShoots.slice(0, 3).map((shoot) => {
               const { date, time } = formatShootDate(shoot.shootStartDate);
 
               return (
@@ -492,28 +451,14 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-  },
+
   statusNav: {
     flexDirection: 'row',
     marginHorizontal: 20,
-    marginTop: 20,
+    marginTop: 20, // Restored to original value
     backgroundColor: 'transparent',
     borderRadius: 10,
-    padding: 5,
+    padding: 5, // Restored to original value
   },
   statusTab: {
     flex: 1,

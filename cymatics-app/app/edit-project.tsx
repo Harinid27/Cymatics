@@ -19,6 +19,7 @@ import clientsService, { Client } from '@/src/services/ClientsService';
 import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 interface FormData {
   name: string;
@@ -45,6 +46,7 @@ export default function EditProjectScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -111,13 +113,19 @@ export default function EditProjectScreen() {
           clientId: project.clientId || 0,
         });
       } else {
-        Alert.alert('Error', 'Failed to load project data');
-        router.back();
+        showAlert({
+          title: 'Error',
+          message: 'Failed to load project data',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
       }
     } catch (error) {
       console.error('Error loading project data:', error);
-      Alert.alert('Error', 'Failed to load project data');
-      router.back();
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load project data',
+        buttons: [{ text: 'OK', onPress: () => router.back() }],
+      });
     } finally {
       setIsLoadingData(false);
     }
@@ -130,7 +138,10 @@ export default function EditProjectScreen() {
       setClients(Array.isArray(clientsData) ? clientsData : []);
     } catch (error) {
       console.error('Error loading clients:', error);
-      Alert.alert('Error', 'Failed to load clients. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load clients. Please try again.',
+      });
     } finally {
       setIsLoadingClients(false);
     }
@@ -180,12 +191,18 @@ export default function EditProjectScreen() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
     if (!id) {
-      Alert.alert('Error', 'Project ID is missing');
+      showAlert({
+        title: 'Error',
+        message: 'Project ID is missing',
+      });
       return;
     }
 
@@ -202,22 +219,28 @@ export default function EditProjectScreen() {
       const updatedProject = await projectsService.updateProject(updateData);
 
       if (updatedProject) {
-        Alert.alert(
-          'Success',
-          'Project updated successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Project updated successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to update project. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to update project. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error updating project:', error);
-      Alert.alert('Error', 'Failed to update project. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to update project. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -582,6 +605,9 @@ export default function EditProjectScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

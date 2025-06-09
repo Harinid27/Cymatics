@@ -313,30 +313,44 @@ const MapsScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.absoluteHeader}>
+          <CustomHeader
+            title="Project Map"
+            showBackButton={true}
+            onBackPress={() => router.back()}
+            rightComponent={
+              <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+                <MaterialIcons name="refresh" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            }
+          />
+        </View>
+        <View style={[styles.loadingContainer, { paddingTop: 100 }]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.muted }]}>Loading projects...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (projects.length === 0) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <CustomHeader
-          title="Project Map"
-          showBackButton={true}
-          onBackPress={() => router.back()}
-          rightComponent={
-            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
-              <MaterialIcons name="refresh" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          }
-        />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.absoluteHeader}>
+          <CustomHeader
+            title="Project Map"
+            showBackButton={true}
+            onBackPress={() => router.back()}
+            rightComponent={
+              <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+                <MaterialIcons name="refresh" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            }
+          />
+        </View>
 
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { paddingTop: 100 }]}>
           <MaterialIcons name="location-off" size={64} color={colors.muted} />
           <Text style={[styles.emptyTitle, { color: colors.muted }]}>No Projects with Locations</Text>
           <Text style={[styles.emptyText, { color: colors.placeholder }]}>
@@ -347,22 +361,24 @@ const MapsScreen: React.FC = () => {
             <Text style={[styles.refreshButtonText, { color: colors.background }]}>Refresh</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
-      <CustomHeader
-        title="Project Map"
-        showBackButton={true}
-        onBackPress={() => router.back()}
-        rightComponent={
-          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
-            <MaterialIcons name="refresh" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        }
-      />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.absoluteHeader}>
+        <CustomHeader
+          title="Project Map"
+          showBackButton={true}
+          onBackPress={() => router.back()}
+          rightComponent={
+            <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+              <MaterialIcons name="refresh" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          }
+        />
+      </View>
 
       {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
@@ -415,7 +431,7 @@ const MapsScreen: React.FC = () => {
         onViewProject={handleViewProject}
         onGetDirections={handleGetDirections}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -423,6 +439,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  absoluteHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
   loadingContainer: {
     flex: 1,
@@ -440,6 +463,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: 100,
+    marginHorizontal: 10,
   },
   searchBar: {
     flexDirection: 'row',
@@ -447,7 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
     paddingHorizontal: 12,
-    height: 40,
+    height: 35,
   },
   searchIcon: {
     marginRight: 8,

@@ -22,12 +22,14 @@ import { router } from 'expo-router';
 import AuthService from '../src/services/AuthService';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 const { height: screenHeight } = Dimensions.get('window');
 
 export default function SignupAnimatedScreen() {
   const { isAuthenticated, login, sendOTP } = useUser();
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [email, setEmail] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -128,13 +130,19 @@ export default function SignupAnimatedScreen() {
 
   const handleEmailSignup = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+      showAlert({
+        title: 'Error',
+        message: 'Please enter your email address',
+      });
       return;
     }
 
     const emailValidation = AuthService.validateEmail(email);
     if (!emailValidation.isValid) {
-      Alert.alert('Error', emailValidation.error);
+      showAlert({
+        title: 'Error',
+        message: emailValidation.error,
+      });
       return;
     }
 
@@ -148,16 +156,22 @@ export default function SignupAnimatedScreen() {
         setShowOTPInput(true);
         setCanResend(false);
         setResendTimer(60); // Start 60-second countdown
-        Alert.alert(
-          'OTP Sent',
-          `A 6-digit verification code has been sent to ${email}. Please check your email.`,
-          [{ text: 'OK' }]
-        );
+        showAlert({
+          title: 'OTP Sent',
+          message: `A 6-digit verification code has been sent to ${email}. Please check your email.`,
+          buttons: [{ text: 'OK' }],
+        });
       } else {
-        Alert.alert('Error', 'Failed to send OTP. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to send OTP. Please try again.',
+        });
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Network error. Please check your connection and try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +180,10 @@ export default function SignupAnimatedScreen() {
   const handleOTPVerification = async () => {
     const otpValidation = AuthService.validateOTP(otp);
     if (!otpValidation.isValid) {
-      Alert.alert('Error', otpValidation.error);
+      showAlert({
+        title: 'Error',
+        message: otpValidation.error,
+      });
       return;
     }
 
@@ -176,21 +193,27 @@ export default function SignupAnimatedScreen() {
       const result = await login(email, otp);
 
       if (result) {
-        Alert.alert(
-          'Success',
-          'Authentication successful! Welcome to Cymatics.',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Authentication successful! Welcome to Cymatics.',
+          buttons: [
             {
               text: 'Continue',
               onPress: () => router.replace('/(tabs)'),
             }
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Invalid OTP. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Invalid OTP. Please try again.',
+        });
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Network error. Please check your connection and try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -207,28 +230,37 @@ export default function SignupAnimatedScreen() {
       if (result) {
         setCanResend(false);
         setResendTimer(60); // Start 60-second countdown
-        Alert.alert('OTP Resent', 'A new verification code has been sent to your email.');
+        showAlert({
+          title: 'OTP Resent',
+          message: 'A new verification code has been sent to your email.',
+        });
       } else {
-        Alert.alert('Error', 'Failed to resend OTP. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to resend OTP. Please try again.',
+        });
       }
     } catch (error) {
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Network error. Please check your connection and try again.',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignup = () => {
-    Alert.alert(
-      'Success',
-      'Signed up with Google successfully!',
-      [
+    showAlert({
+      title: 'Success',
+      message: 'Signed up with Google successfully!',
+      buttons: [
         {
           text: 'Continue',
           onPress: () => router.replace('/(tabs)'),
         }
-      ]
-    );
+      ],
+    });
   };
 
   return (
@@ -418,6 +450,9 @@ export default function SignupAnimatedScreen() {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       )}
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

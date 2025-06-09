@@ -44,12 +44,13 @@ const startServer = async () => {
     // Connect to database
     await connectDatabase();
     
-    // Start HTTP server
-    const server = app.listen(PORT, () => {
+    // Start HTTP server - bind to all interfaces (0.0.0.0) for network access
+    const server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Cymatics Backend Server is running on port ${PORT}`);
       logger.info(`📊 Environment: ${config.env}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
       logger.info(`📚 API docs: http://localhost:${PORT}/api`);
+      logger.info(`🌐 Network access: http://0.0.0.0:${PORT}`);
     });
 
     // Handle server errors

@@ -19,9 +19,11 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import CustomHeader from '@/src/components/CustomHeader';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function CreateEntertainmentScreen() {
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -29,7 +31,7 @@ export default function CreateEntertainmentScreen() {
     date: new Date().toISOString().split('T')[0],
     type: '',
     language: '',
-    rating: 5,
+    rating: 0,
     name: '',
     source: '',
   });
@@ -98,7 +100,10 @@ export default function CreateEntertainmentScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -107,22 +112,28 @@ export default function CreateEntertainmentScreen() {
       const result = await EntertainmentService.createEntertainment(formData);
 
       if (result) {
-        Alert.alert(
-          'Success',
-          'Entertainment entry created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Entertainment entry created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create entertainment entry. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create entertainment entry. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Create entertainment error:', error);
-      Alert.alert('Error', 'Failed to create entertainment entry. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create entertainment entry. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -341,7 +352,7 @@ export default function CreateEntertainmentScreen() {
       {showTypePicker && (
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Select Type</Text>
               <TouchableOpacity onPress={() => setShowTypePicker(false)}>
                 <MaterialIcons name="close" size={24} color={colors.text} />
@@ -410,6 +421,9 @@ export default function CreateEntertainmentScreen() {
           </View>
         </View>
       )}
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -550,7 +564,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
     fontSize: 18,
@@ -565,7 +578,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
   },
   optionText: {
     fontSize: 16,

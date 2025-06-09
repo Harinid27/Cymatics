@@ -24,6 +24,7 @@ export default function BudgetScreen() {
   const [budgetOverview, setBudgetOverview] = useState<BudgetOverview | null>(null);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
   const [investmentData, setInvestmentData] = useState<any[]>([]);
+  const [budgetAnalytics, setBudgetAnalytics] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,15 +37,38 @@ export default function BudgetScreen() {
   const loadBudgetData = async () => {
     try {
       setError(null);
-      const [overview, categories, investments] = await Promise.all([
-        BudgetService.getBudgetOverview().catch(() => ({
-          currentBalance: 0,
-          receivedAmountThisMonth: 0,
-          totalReceivedChart: []
-        })),
-        BudgetService.getBudgetCategories().catch(() => []),
-        BudgetService.getBudgetComparison().catch(() => []),
+      console.log('🔄 Loading comprehensive budget data...');
+
+      const [overview, categories, investments, analytics] = await Promise.all([
+        BudgetService.getBudgetOverview().catch((err) => {
+          console.error('Failed to load budget overview:', err);
+          return {
+            currentBalance: 0,
+            receivedAmountThisMonth: 0,
+            totalReceivedChart: [],
+            budgetSplitUp: []
+          };
+        }),
+        BudgetService.getBudgetCategories().catch((err) => {
+          console.error('Failed to load budget categories:', err);
+          return [];
+        }),
+        BudgetService.getInvestmentDetails().catch((err) => {
+          console.error('Failed to load investment details:', err);
+          return [];
+        }),
+        BudgetService.getBudgetAnalytics().catch((err) => {
+          console.error('Failed to load budget analytics:', err);
+          return null;
+        }),
       ]);
+
+      console.log('✅ Budget data loaded successfully:', {
+        hasOverview: !!overview,
+        categoriesCount: categories.length,
+        investmentsCount: investments.length,
+        hasAnalytics: !!analytics
+      });
 
       // Ensure data has proper structure
       setBudgetOverview({
@@ -56,9 +80,10 @@ export default function BudgetScreen() {
 
       setBudgetCategories(Array.isArray(categories) ? categories : []);
       setInvestmentData(Array.isArray(investments) ? investments : []);
+      setBudgetAnalytics(analytics);
     } catch (error) {
       console.error('Error loading budget data:', error);
-      setError('Failed to load budget data. Please try again.');
+      setError('Failed to load budget data. Please check your connection and try again.');
 
       // Set default empty data to prevent undefined errors
       setBudgetOverview({
@@ -69,6 +94,7 @@ export default function BudgetScreen() {
       });
       setBudgetCategories([]);
       setInvestmentData([]);
+      setBudgetAnalytics(null);
     } finally {
       setIsLoading(false);
     }
@@ -93,37 +119,110 @@ export default function BudgetScreen() {
   };
 
   const renderBudgetSplitItem = (item: BudgetCategory, index: number) => (
-    <View key={item.id} style={styles.budgetSplitItem}>
-      <Text style={[styles.budgetSplitName, { color: colors.text }]}>{item.name}</Text>
-      <Text style={[styles.budgetSplitAmount, { color: colors.text }]}>
-        ${item.amount.toLocaleString()}
-      </Text>
+    <View key={item.id || index} style={[styles.budgetSplitItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.colorIndicator, { backgroundColor: item.color || '#4CAF50' }]} />
+      <View style={styles.budgetSplitContent}>
+        <Text style={[styles.budgetSplitName, { color: colors.text }]}>{item.name}</Text>
+        <Text style={[styles.budgetSplitAmount, { color: colors.muted }]}>
+          ₹{item.amount?.toLocaleString() || '0'}
+        </Text>
+        <Text style={[styles.budgetSplitPercentage, { color: colors.muted }]}>
+          {item.percentage || 0}%
+        </Text>
+        {item.description && (
+          <Text style={[styles.budgetSplitDescription, { color: colors.muted }]}>
+            {item.description}
+          </Text>
+        )}
+      </View>
     </View>
   );
 
   const renderInvestmentItem = (item: any, index: number) => (
     <View key={index} style={styles.investmentSection}>
-      <Text style={[styles.investmentTitle, { color: colors.text }]}>Investment {index + 1}</Text>
+      <Text style={[styles.investmentTitle, { color: colors.text }]}>
+        {item.name || `Investment ${index + 1}`}
+      </Text>
       <View style={[styles.investmentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.investmentColumn}>
-          <Text style={[styles.investmentLabel, { color: colors.text }]}>Budget</Text>
-          <Text style={[styles.investmentValue, { color: colors.text }]}>${item.budget?.toLocaleString() || '0'}</Text>
-        </View>
-        <View style={styles.investmentColumn}>
-          <Text style={[styles.investmentLabel, { color: colors.text }]}>Expense</Text>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Amount</Text>
           <Text style={[styles.investmentValue, { color: colors.text }]}>
-            ${item.expense?.toLocaleString() || '0'}
+            ₹{item.amount?.toLocaleString() || '0'}
           </Text>
         </View>
         <View style={styles.investmentColumn}>
-          <Text style={[styles.investmentLabel, { color: colors.text }]}>Balance</Text>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Type</Text>
           <Text style={[styles.investmentValue, { color: colors.text }]}>
-            ${item.balance?.toLocaleString() || '0'}
+            {item.type || 'N/A'}
+          </Text>
+        </View>
+        <View style={styles.investmentColumn}>
+          <Text style={[styles.investmentLabel, { color: colors.text }]}>Returns</Text>
+          <Text style={[styles.investmentValue, { color: colors.text }]}>
+            {item.returns?.toFixed(1) || '0'}%
           </Text>
         </View>
       </View>
     </View>
   );
+
+  const renderBudgetAnalytics = () => {
+    if (!budgetAnalytics) return null;
+
+    return (
+      <View style={[styles.analyticsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Budget Analytics</Text>
+
+        {/* Budget Utilization */}
+        <View style={styles.analyticsRow}>
+          <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Budget Utilization</Text>
+          <Text style={[styles.analyticsValue, { color: colors.text }]}>
+            {budgetAnalytics.budgetUtilization.toFixed(1)}%
+          </Text>
+        </View>
+
+        {/* Total Budget vs Spent */}
+        <View style={styles.analyticsRow}>
+          <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Total Budget</Text>
+          <Text style={[styles.analyticsValue, { color: colors.text }]}>
+            ₹{budgetAnalytics.totalBudget.toLocaleString()}
+          </Text>
+        </View>
+
+        <View style={styles.analyticsRow}>
+          <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Total Spent</Text>
+          <Text style={[styles.analyticsValue, { color: colors.text }]}>
+            ₹{budgetAnalytics.totalSpent.toLocaleString()}
+          </Text>
+        </View>
+
+        <View style={styles.analyticsRow}>
+          <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Remaining Budget</Text>
+          <Text style={[styles.analyticsValue, {
+            color: budgetAnalytics.remainingBudget > 0 ? '#4CAF50' : '#F44336'
+          }]}>
+            ₹{budgetAnalytics.remainingBudget.toLocaleString()}
+          </Text>
+        </View>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <Text style={[styles.progressLabel, { color: colors.muted }]}>Budget Progress</Text>
+          <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: budgetAnalytics.budgetUtilization > 90 ? '#F44336' : '#4CAF50',
+                  width: `${Math.min(budgetAnalytics.budgetUtilization, 100)}%`
+                }
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderSimpleChart = () => {
     if (!budgetOverview?.totalReceivedChart || budgetOverview.totalReceivedChart.length === 0) {
@@ -273,13 +372,13 @@ export default function BudgetScreen() {
               <View style={[styles.currentBalanceCard, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.cardLabel, { color: colors.background }]}>Current Balance</Text>
                 <Text style={[styles.currentBalanceAmount, { color: colors.background }]}>
-                  ${budgetOverview?.currentBalance?.toLocaleString() || '0'}
+                  ₹{budgetOverview?.currentBalance?.toLocaleString() || '0'}
                 </Text>
               </View>
               <View style={[styles.receivedAmountCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={[styles.cardLabel, { color: colors.muted }]}>Received Amount</Text>
                 <Text style={[styles.receivedAmount, { color: colors.text }]}>
-                  ${budgetOverview?.receivedAmountThisMonth?.toLocaleString() || '0'}
+                  ₹{budgetOverview?.receivedAmountThisMonth?.toLocaleString() || '0'}
                 </Text>
                 <Text style={[styles.thisMonth, { color: colors.muted }]}>This Month</Text>
               </View>
@@ -287,6 +386,9 @@ export default function BudgetScreen() {
 
             {/* Chart */}
             {renderSimpleChart()}
+
+            {/* Budget Analytics */}
+            {renderBudgetAnalytics()}
 
             {/* Budget Split Up */}
             <View style={[styles.budgetSplitContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -494,16 +596,40 @@ const styles = StyleSheet.create({
   },
   budgetSplitItem: {
     width: '48%',
-    marginBottom: 8,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  budgetSplitContent: {
+    flex: 1,
   },
   budgetSplitName: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   budgetSplitAmount: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '500',
+    marginBottom: 2,
+  },
+  budgetSplitPercentage: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  budgetSplitDescription: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   balanceDetailsContainer: {
     marginHorizontal: 20,
@@ -592,6 +718,44 @@ const styles = StyleSheet.create({
   emptyChartText: {
     fontSize: 14,
     marginTop: 10,
+  },
+  analyticsContainer: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 15,
+    padding: 15,
+    borderWidth: 1,
+  },
+  analyticsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  analyticsLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  analyticsValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  progressContainer: {
+    marginTop: 15,
+  },
+  progressLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });
 

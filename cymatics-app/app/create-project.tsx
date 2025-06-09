@@ -21,11 +21,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LocationPicker from '@/src/components/maps/LocationPicker';
 import MapsService, { Coordinates } from '@/src/services/MapsService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function CreateProjectScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   // Form state
   const [formData, setFormData] = useState<CreateProjectData>({
@@ -77,7 +79,10 @@ export default function CreateProjectScreen() {
       console.log('Clients state after setting:', Array.isArray(clientsData) ? clientsData : []);
     } catch (error) {
       console.error('Error loading clients:', error);
-      Alert.alert('Error', 'Failed to load clients. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load clients. Please try again.',
+      });
     } finally {
       setIsLoadingClients(false);
     }
@@ -127,7 +132,10 @@ export default function CreateProjectScreen() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -175,22 +183,28 @@ export default function CreateProjectScreen() {
       const newProject = await projectsService.createProject(projectData);
 
       if (newProject) {
-        Alert.alert(
-          'Success',
-          'Project created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Project created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create project. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create project. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error creating project:', error);
-      Alert.alert('Error', 'Failed to create project. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to create project. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -687,6 +701,9 @@ export default function CreateProjectScreen() {
         initialLocation={selectedCoordinates}
         title="Select Project Location"
       />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

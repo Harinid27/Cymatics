@@ -113,7 +113,15 @@ const config: Config = {
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:19006'],
+    origin: process.env.CORS_ORIGIN?.split(',') || [
+      'http://localhost:3000',
+      'http://localhost:19006',
+      'http://192.168.227.104:19006',
+      'http://192.168.227.104:8081',
+      // Allow React Native/Expo development
+      'exp://192.168.227.104:19000',
+      'exp://localhost:19000'
+    ],
   },
 
   security: {

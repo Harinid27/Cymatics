@@ -40,6 +40,9 @@ export interface CalendarEventData {
   amount?: number;
   location?: string;
   description?: string;
+  status?: string;
+  isCompleted?: boolean;
+  projectStartDate?: Date; // Add project start date for sorting priority
 }
 
 export interface DayEvents {
@@ -140,25 +143,49 @@ class CalendarService {
       }
 
       const params = {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        limit: 100, // Get more projects for calendar view
+        limit: 1000, // Get all projects for calendar view
+        page: 1,
       };
 
-      const response = await ApiService.get<ProjectsResponse>(
-        envConfig.PROJECTS_ENDPOINT,
-        params
-      );
+      console.log('🔄 Fetching projects for calendar from:', envConfig.PROJECTS_ENDPOINT);
+      const response = await ApiService.get<any>(envConfig.PROJECTS_ENDPOINT, params);
 
-      console.log('Project events API response:', response);
+      console.log('📅 Project events API response:', {
+        success: response?.success,
+        hasData: !!response?.data,
+        dataType: Array.isArray(response?.data) ? 'array' : typeof response?.data,
+        dataLength: Array.isArray(response?.data) ? response.data.length : 'N/A',
+        error: response?.error,
+        status: response?.status,
+      });
 
       if (response && response.success && response.data) {
-        // Safely extract projects array
-        const projects = Array.isArray(response.data.projects) ? response.data.projects : [];
+        // Handle different response formats
+        let projects: any[] = [];
 
-        // Filter projects that have valid shoot dates that overlap with the range
-        return projects.filter(project => {
-          if (!project || !project.shootStartDate) {
+        if (Array.isArray(response.data)) {
+          // Direct array response
+          projects = response.data;
+        } else if (response.data.projects && Array.isArray(response.data.projects)) {
+          // Wrapped in projects property
+          projects = response.data.projects;
+        } else {
+          console.warn('Unexpected project data format:', response.data);
+          return [];
+        }
+
+        console.log(`📊 Found ${projects.length} projects, filtering for calendar dates...`);
+
+        // Filter projects that have valid shoot dates
+        const validProjects = projects.filter(project => {
+          if (!project) {
+            return false;
+          }
+
+          const hasStartDate = project.shootStartDate && project.shootStartDate !== null;
+          const hasEndDate = project.shootEndDate && project.shootEndDate !== null;
+
+          if (!hasStartDate && !hasEndDate) {
             return false;
           }
 
@@ -187,9 +214,12 @@ class CalendarService {
             return false;
           }
         });
+
+        console.log(`✅ Found ${validProjects.length} projects with valid dates for calendar`);
+        return validProjects;
       }
 
-      console.log('No project events found or API error:', response?.error || 'Unknown error');
+      console.log('❌ No project events found or API error:', response?.error || 'Unknown error');
       return [];
     } catch (error) {
       console.error('Project events fetch error:', error);
@@ -313,39 +343,67 @@ class CalendarService {
             console.log(`  Start Date: ${project.shootStartDate}`);
             console.log(`  End Date: ${project.shootEndDate}`);
 
+            // Determine project status and colors
+            const projectStatus = project.status?.toLowerCase() || 'unknown';
+            const isCompleted = projectStatus === 'completed' || projectStatus === 'finished' || projectStatus === 'done';
+
+            console.log(`  Project Status: ${projectStatus}, Is Completed: ${isCompleted}`);
+
             // Add project start date event
-            const startDate = new Date(project.shootStartDate);
-            if (!isNaN(startDate.getTime())) {
-              const startDateKey = startDate.toISOString().split('T')[0];
+            if (project.shootStartDate) {
+              const startDate = new Date(project.shootStartDate);
+              console.log(`  Parsed Start Date: ${startDate}, Valid: ${!isNaN(startDate.getTime())}`);
 
-              if (!dayEvents[startDateKey]) {
-                dayEvents[startDateKey] = [];
+              if (!isNaN(startDate.getTime())) {
+                const startDateKey = startDate.toISOString().split('T')[0];
+                console.log(`  Adding start date event for ${startDateKey}`);
+
+                if (!dayEvents[startDateKey]) {
+                  dayEvents[startDateKey] = [];
+                }
+
+                // Use grey color for completed projects, green for active projects
+                const startColor = isCompleted ? '#9E9E9E' : '#4CAF50';
+
+                dayEvents[startDateKey].push({
+                  id: project.id || Math.random(),
+                  title: `${projectCode} Start`,
+                  type: 'project-start',
+                  startDate: startDate,
+                  endDate: undefined,
+                  color: startColor,
+                  projectCode: projectCode,
+                  projectId: project.id,
+                  amount: project.amount || 0,
+                  location: project.location || '',
+                  description: `${projectName} - Start Date${isCompleted ? ' (Completed)' : ''}`,
+                  status: projectStatus,
+                  isCompleted: isCompleted,
+                  projectStartDate: startDate, // Add project start date for sorting
+                });
+                console.log(`  ✅ Start date event added successfully with color: ${startColor}`);
+              } else {
+                console.log(`  ❌ Invalid start date: ${project.shootStartDate}`);
               }
-
-              dayEvents[startDateKey].push({
-                id: project.id || Math.random(),
-                title: `${projectCode} Start`,
-                type: 'project-start',
-                startDate: startDate,
-                endDate: undefined,
-                color: '#4CAF50', // Green for start dates
-                projectCode: projectCode,
-                projectId: project.id,
-                amount: project.amount || 0,
-                location: project.location || '',
-                description: `${projectName} - Start Date`,
-              });
+            } else {
+              console.log(`  ⚠️ No start date provided for project ${projectCode}`);
             }
 
             // Add project end date event (if exists)
             if (project.shootEndDate) {
               const endDate = new Date(project.shootEndDate);
+              console.log(`  Parsed End Date: ${endDate}, Valid: ${!isNaN(endDate.getTime())}`);
+
               if (!isNaN(endDate.getTime())) {
                 const endDateKey = endDate.toISOString().split('T')[0];
+                console.log(`  Adding end date event for ${endDateKey}`);
 
                 if (!dayEvents[endDateKey]) {
                   dayEvents[endDateKey] = [];
                 }
+
+                // Use grey color for completed projects, red for active projects
+                const endColor = isCompleted ? '#9E9E9E' : '#F44336';
 
                 dayEvents[endDateKey].push({
                   id: (project.id || Math.random()) + 0.1, // Slightly different ID for end date
@@ -353,20 +411,49 @@ class CalendarService {
                   type: 'project-end',
                   startDate: endDate,
                   endDate: undefined,
-                  color: '#F44336', // Red for end dates
+                  color: endColor,
                   projectCode: projectCode,
                   projectId: project.id,
                   amount: project.amount || 0,
                   location: project.location || '',
-                  description: `${projectName} - End Date`,
+                  description: `${projectName} - End Date${isCompleted ? ' (Completed)' : ''}`,
+                  status: projectStatus,
+                  isCompleted: isCompleted,
+                  projectStartDate: startDate, // Add project start date for sorting (use start date even for end events)
                 });
+                console.log(`  ✅ End date event added successfully with color: ${endColor}`);
+              } else {
+                console.log(`  ❌ Invalid end date: ${project.shootEndDate}`);
               }
+            } else {
+              console.log(`  ⚠️ No end date provided for project ${projectCode}`);
             }
           } catch (error) {
             console.warn('Error processing project event:', project, error);
           }
         });
       }
+
+      // Sort events by priority within each day
+      Object.keys(dayEvents).forEach(dateKey => {
+        dayEvents[dateKey].sort((a, b) => {
+          // Priority 1: For project events on the same date, prioritize by project start date
+          if (a.type?.includes('project') && b.type?.includes('project')) {
+            // Extract project start dates for comparison
+            const aProjectStartTime = a.projectStartDate ? new Date(a.projectStartDate).getTime() :
+                                     (a.type === 'project-start' ? a.startDate.getTime() : Infinity);
+            const bProjectStartTime = b.projectStartDate ? new Date(b.projectStartDate).getTime() :
+                                     (b.type === 'project-start' ? b.startDate.getTime() : Infinity);
+
+            if (aProjectStartTime !== bProjectStartTime) {
+              return aProjectStartTime - bProjectStartTime;
+            }
+          }
+
+          // Priority 2: Sort by event start time
+          return a.startDate.getTime() - b.startDate.getTime();
+        });
+      });
 
       const eventDaysCount = Object.keys(dayEvents).length;
       console.log(`Organized events into ${eventDaysCount} days`);

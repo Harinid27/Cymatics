@@ -18,6 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import MenuDrawer from '@/components/MenuDrawer';
 import { calendarService, CalendarEventData, DayEvents } from '@/src/services/CalendarService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 import { useRouter } from 'expo-router';
 
 // Use types from CalendarService
@@ -25,6 +26,7 @@ import { useRouter } from 'expo-router';
 export default function CalendarScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -160,7 +162,10 @@ export default function CalendarScreen() {
 
   const handleSaveEvent = async () => {
     if (!eventTitle.trim() || !eventStartTime || !eventEndTime) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert({
+        title: 'Error',
+        message: 'Please fill in all fields',
+      });
       return;
     }
 
@@ -168,7 +173,10 @@ export default function CalendarScreen() {
     const endDate = new Date(eventEndTime);
 
     if (endDate <= startDate) {
-      Alert.alert('Error', 'End time must be after start time');
+      showAlert({
+        title: 'Error',
+        message: 'End time must be after start time',
+      });
       return;
     }
 
@@ -185,11 +193,17 @@ export default function CalendarScreen() {
         );
 
         if (updatedEvent) {
-          Alert.alert('Success', 'Event updated successfully');
+          showAlert({
+            title: 'Success',
+            message: 'Event updated successfully',
+          });
           setIsEventModalVisible(false);
           loadCalendarData(); // Refresh calendar data
         } else {
-          Alert.alert('Error', 'Failed to update event');
+          showAlert({
+            title: 'Error',
+            message: 'Failed to update event',
+          });
         }
       } else {
         // Create new event
@@ -200,16 +214,25 @@ export default function CalendarScreen() {
         );
 
         if (newEvent) {
-          Alert.alert('Success', 'Event created successfully');
+          showAlert({
+            title: 'Success',
+            message: 'Event created successfully',
+          });
           setIsEventModalVisible(false);
           loadCalendarData(); // Refresh calendar data
         } else {
-          Alert.alert('Error', 'Failed to create event');
+          showAlert({
+            title: 'Error',
+            message: 'Failed to create event',
+          });
         }
       }
     } catch (error) {
       console.error('Error saving event:', error);
-      Alert.alert('Error', 'Failed to save event. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to save event. Please try again.',
+      });
     } finally {
       setIsCreatingEvent(false);
     }
@@ -218,10 +241,10 @@ export default function CalendarScreen() {
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
 
-    Alert.alert(
-      'Delete Event',
-      'Are you sure you want to delete this event?',
-      [
+    showAlert({
+      title: 'Delete Event',
+      message: 'Are you sure you want to delete this event?',
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -231,20 +254,29 @@ export default function CalendarScreen() {
               const success = await calendarService.deleteCalendarEvent(selectedEvent.id);
 
               if (success) {
-                Alert.alert('Success', 'Event deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Event deleted successfully',
+                });
                 setIsEventDetailModalVisible(false);
                 loadCalendarData(); // Refresh calendar data
               } else {
-                Alert.alert('Error', 'Failed to delete event');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete event',
+                });
               }
             } catch (error) {
               console.error('Error deleting event:', error);
-              Alert.alert('Error', 'Failed to delete event. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete event. Please try again.',
+              });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
 
@@ -376,6 +408,7 @@ export default function CalendarScreen() {
       const eventId = event.id || `event-${index}`;
       const eventTitle = event.projectCode || event.title || 'Untitled Event';
       const eventColor = event.color || '#95A5A6';
+      const isCompleted = event.isCompleted || false;
 
       return (
         <TouchableOpacity
@@ -383,9 +416,14 @@ export default function CalendarScreen() {
           style={[styles.eventChip, { backgroundColor: eventColor }]}
           onPress={() => handleEventPress(event)}
         >
-          <Text style={styles.eventChipText} numberOfLines={1}>
-            {eventTitle}
-          </Text>
+          <View style={styles.eventChipContent}>
+            <Text style={styles.eventChipText} numberOfLines={1}>
+              {eventTitle}
+            </Text>
+            {isCompleted && (
+              <Text style={styles.completedIndicator}>✓</Text>
+            )}
+          </View>
         </TouchableOpacity>
       );
     } catch (error) {
@@ -481,6 +519,10 @@ export default function CalendarScreen() {
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, { backgroundColor: '#F44336' }]} />
             <Text style={[styles.legendText, { color: colors.muted }]}>Project End</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#9E9E9E' }]} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>Completed Project</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, { backgroundColor: '#4ECDC4' }]} />
@@ -603,25 +645,31 @@ export default function CalendarScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>Start Time</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Start Date & Time</Text>
               <TextInput
                 style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={eventStartTime}
                 onChangeText={setEventStartTime}
-                placeholder="YYYY-MM-DDTHH:MM"
+                placeholder="e.g., 2024-01-15T09:00 (Date and Time)"
                 placeholderTextColor={colors.placeholder}
               />
+              <Text style={[styles.helpText, { color: colors.muted }]}>
+                Format: YYYY-MM-DD followed by T and HH:MM (24-hour format)
+              </Text>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>End Time</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>End Date & Time</Text>
               <TextInput
                 style={[styles.textInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                 value={eventEndTime}
                 onChangeText={setEventEndTime}
-                placeholder="YYYY-MM-DDTHH:MM"
+                placeholder="e.g., 2024-01-15T10:00 (Date and Time)"
                 placeholderTextColor={colors.placeholder}
               />
+              <Text style={[styles.helpText, { color: colors.muted }]}>
+                Format: YYYY-MM-DD followed by T and HH:MM (24-hour format)
+              </Text>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -653,15 +701,28 @@ export default function CalendarScreen() {
                 <View style={styles.eventDetailRow}>
                   <MaterialIcons name="event" size={20} color="#666" />
                   <Text style={styles.eventDetailText}>
-                    {selectedEvent.startDate.toLocaleDateString()}
+                    {selectedEvent.startDate.toLocaleDateString('en-IN', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
                   </Text>
                 </View>
 
                 <View style={styles.eventDetailRow}>
                   <MaterialIcons name="access-time" size={20} color="#666" />
                   <Text style={styles.eventDetailText}>
-                    {selectedEvent.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {selectedEvent.endDate && ` - ${selectedEvent.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                    {selectedEvent.startDate.toLocaleTimeString('en-IN', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                    {selectedEvent.endDate && ` to ${selectedEvent.endDate.toLocaleTimeString('en-IN', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}`}
                   </Text>
                 </View>
 
@@ -711,6 +772,9 @@ export default function CalendarScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -796,7 +860,7 @@ const styles = StyleSheet.create({
   },
   dateContainer: {
     width: '14.28%',
-    height: 80,
+    height: 80, // Reverted to original height
     padding: 4,
     marginBottom: 5,
   },
@@ -827,18 +891,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eventChip: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 4, // Reverted to original
     paddingVertical: 1,
     borderRadius: 3,
     marginBottom: 1,
   },
+  eventChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   eventChipText: {
-    fontSize: 9,
+    fontSize: 9, // Reverted to original
     color: '#fff',
     fontWeight: '500',
+    flex: 1,
+  },
+  completedIndicator: {
+    fontSize: 8, // Reverted to original
+    color: '#fff',
+    fontWeight: 'bold',
+    marginLeft: 2,
   },
   moreEventsText: {
-    fontSize: 8,
+    fontSize: 8, // Reverted to original
     color: '#666',
     fontWeight: '500',
     marginTop: 1,
@@ -961,6 +1037,11 @@ const styles = StyleSheet.create({
     color: '#000',
     backgroundColor: '#fff',
   },
+  helpText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   // Event Detail Modal
   eventDetailContainer: {
     padding: 20,
@@ -1016,23 +1097,28 @@ const styles = StyleSheet.create({
   },
   legendItems: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    flexWrap: 'nowrap', // Force single row
+    paddingHorizontal: 5,
+    gap: 8, // Smaller gap for better fit
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    flex: 1,
+    minWidth: 0, // Allow items to shrink
+    marginBottom: 0, // Remove bottom margin since we're in single row
   },
   legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
+    width: 10, // Reduced from 12 to 10 for smaller marker
+    height: 10, // Reduced from 12 to 10 for smaller marker
+    borderRadius: 5, // Adjusted for new size
+    marginRight: 5, // Reduced from 6 to 5
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 10, // Reduced from 12 to 10 for smaller text
     color: '#666',
     fontWeight: '500',
+    flexShrink: 1, // Allow text to shrink if needed
   },
 });

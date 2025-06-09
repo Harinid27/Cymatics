@@ -57,7 +57,7 @@ const getApiBaseUrl = (): string => {
   }
 
   // Fallback to your computer's IP for mobile testing
-  const defaultUrl = 'http://192.168.227.96:3000';
+  const defaultUrl = 'http://192.168.227.104:3000';
   console.log('📍 Using default API URL:', defaultUrl);
   return defaultUrl;
 };

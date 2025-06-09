@@ -34,28 +34,58 @@ class BudgetService {
    */
   async getBudgetOverview(): Promise<BudgetOverview> {
     try {
-      const response = await ApiService.get('/financial/budget');
+      console.log('🏦 Fetching budget overview from dedicated endpoint...');
+      const response = await ApiService.get('/budget/overview');
+
+      console.log('🏦 Budget overview API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        error: response.error,
+        status: response.status,
+      });
+
       if (response.success && response.data) {
         return response.data;
       }
 
-      // Return default data if API fails
-      return {
-        currentBalance: 0,
-        receivedAmountThisMonth: 0,
-        totalReceivedChart: [],
-        budgetSplitUp: []
-      };
+      // Fallback to financial endpoint if budget endpoint fails
+      console.log('🏦 Trying fallback financial endpoint...');
+      const fallbackResponse = await ApiService.get('/financial/budget');
+      if (fallbackResponse.success && fallbackResponse.data) {
+        // Transform financial data to budget format if needed
+        const financialData = fallbackResponse.data;
+        return {
+          currentBalance: financialData.summary?.netProfit || 0,
+          receivedAmountThisMonth: financialData.summary?.totalIncome || 0,
+          totalReceivedChart: [],
+          budgetSplitUp: financialData.expenseBreakdown?.map((item: any, index: number) => ({
+            name: item.category || 'Unknown',
+            amount: item.total || 0,
+            color: this.getDefaultColors()[index % this.getDefaultColors().length]
+          })) || []
+        };
+      }
+
+      // Return default data if both APIs fail
+      return this.getDefaultBudgetOverview();
     } catch (error) {
       console.error('Error fetching budget overview:', error);
       // Return default data instead of throwing
-      return {
-        currentBalance: 0,
-        receivedAmountThisMonth: 0,
-        totalReceivedChart: [],
-        budgetSplitUp: []
-      };
+      return this.getDefaultBudgetOverview();
     }
+  }
+
+  private getDefaultBudgetOverview(): BudgetOverview {
+    return {
+      currentBalance: 0,
+      receivedAmountThisMonth: 0,
+      totalReceivedChart: [],
+      budgetSplitUp: []
+    };
+  }
+
+  private getDefaultColors(): string[] {
+    return ['#4CAF50', '#2196F3', '#FF9800', '#F44336', '#9C27B0', '#00BCD4', '#FFEB3B', '#795548'];
   }
 
   /**
@@ -63,10 +93,23 @@ class BudgetService {
    */
   async getBudgetCategories(): Promise<BudgetCategory[]> {
     try {
-      const response = await ApiService.get('/financial/budget/categories');
-      if (response.success && response.data) {
-        return Array.isArray(response.data) ? response.data : [];
+      console.log('📊 Fetching budget categories from dedicated endpoint...');
+      const response = await ApiService.get('/budget/categories');
+
+      console.log('📊 Budget categories API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataLength: response.data?.categories?.length || 0,
+        error: response.error,
+        status: response.status,
+      });
+
+      if (response.success && response.data?.categories) {
+        return response.data.categories;
       }
+
+      // Return empty array if API fails
+      console.log('📊 No budget categories found, returning empty array');
       return [];
     } catch (error) {
       console.error('Error fetching budget categories:', error);
@@ -127,11 +170,27 @@ class BudgetService {
    */
   async getInvestmentDetails(): Promise<InvestmentDetail[]> {
     try {
-      const response = await ApiService.get('/financial/budget/investments');
-      return response.data;
+      console.log('💰 Fetching investment details from dedicated endpoint...');
+      const response = await ApiService.get('/budget/investment-details');
+
+      console.log('💰 Investment details API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataLength: response.data?.investments?.length || 0,
+        error: response.error,
+        status: response.status,
+      });
+
+      if (response.success && response.data?.investments) {
+        return response.data.investments;
+      }
+
+      // Return empty array if API fails
+      console.log('💰 No investment details found, returning empty array');
+      return [];
     } catch (error) {
       console.error('Error fetching investment details:', error);
-      throw error;
+      return [];
     }
   }
 
@@ -144,7 +203,16 @@ class BudgetService {
     balance: number;
   }[]> {
     try {
+      console.log('📈 Fetching budget comparison data...');
       const response = await ApiService.get('/financial/budget/comparison');
+
+      console.log('📈 Budget comparison API response:', {
+        success: response.success,
+        hasData: !!response.data,
+        error: response.error,
+        status: response.status,
+      });
+
       if (response.success && response.data) {
         return Array.isArray(response.data) ? response.data : [];
       }
@@ -152,6 +220,68 @@ class BudgetService {
     } catch (error) {
       console.error('Error fetching budget comparison:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get detailed budget analytics including spending patterns and trends
+   */
+  async getBudgetAnalytics(): Promise<{
+    totalBudget: number;
+    totalSpent: number;
+    remainingBudget: number;
+    budgetUtilization: number;
+    monthlyTrend: { month: string; budget: number; spent: number }[];
+    categoryBreakdown: { category: string; budgeted: number; spent: number; remaining: number }[];
+  }> {
+    try {
+      console.log('📊 Fetching detailed budget analytics...');
+
+      // Get budget overview and categories in parallel
+      const [overview, categories] = await Promise.all([
+        this.getBudgetOverview(),
+        this.getBudgetCategories()
+      ]);
+
+      // Calculate analytics
+      const totalBudget = categories.reduce((sum, cat) => sum + cat.amount, 0);
+      const totalSpent = overview.receivedAmountThisMonth; // This would be actual spending in a real scenario
+      const remainingBudget = Math.max(0, totalBudget - totalSpent);
+      const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+      // Generate monthly trend (mock data for now)
+      const monthlyTrend = overview.totalReceivedChart.map(item => ({
+        month: item.month,
+        budget: totalBudget / 12, // Assuming equal monthly budget
+        spent: item.value
+      }));
+
+      // Generate category breakdown
+      const categoryBreakdown = categories.map(category => ({
+        category: category.name,
+        budgeted: category.amount,
+        spent: category.amount * (budgetUtilization / 100), // Proportional spending
+        remaining: category.amount * (1 - budgetUtilization / 100)
+      }));
+
+      return {
+        totalBudget,
+        totalSpent,
+        remainingBudget,
+        budgetUtilization,
+        monthlyTrend,
+        categoryBreakdown
+      };
+    } catch (error) {
+      console.error('Error fetching budget analytics:', error);
+      return {
+        totalBudget: 0,
+        totalSpent: 0,
+        remainingBudget: 0,
+        budgetUtilization: 0,
+        monthlyTrend: [],
+        categoryBreakdown: []
+      };
     }
   }
 

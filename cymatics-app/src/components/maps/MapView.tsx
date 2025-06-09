@@ -60,14 +60,7 @@ const CustomMapView: React.FC<MapViewProps> = ({
   const mapRef = useRef<MapView>(null);
   const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [region, setRegion] = useState<Region>(
-    initialRegion || {
-      latitude: 12.9716, // Bangalore coordinates as default
-      longitude: 77.5946,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    }
-  );
+  const [region, setRegion] = useState<Region | null>(initialRegion || null);
 
   useEffect(() => {
     if (showUserLocation) {
@@ -81,7 +74,7 @@ const CustomMapView: React.FC<MapViewProps> = ({
       const location = await MapsService.getCurrentLocation();
       if (location) {
         setCurrentLocation(location);
-        if (!initialRegion) {
+        if (!initialRegion && !region) {
           const newRegion = {
             ...location,
             latitudeDelta: 0.0922,
@@ -148,32 +141,42 @@ const CustomMapView: React.FC<MapViewProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        region={region}
-        mapType={mapType}
-        showsUserLocation={showUserLocation}
-        showsMyLocationButton={false}
-        zoomEnabled={zoomEnabled}
-        scrollEnabled={scrollEnabled}
-        rotateEnabled={rotateEnabled}
-        pitchEnabled={pitchEnabled}
-        onPress={handleMapPress}
-        onRegionChangeComplete={handleRegionChangeComplete}
-      >
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            coordinate={marker.coordinate}
-            title={marker.title}
-            description={marker.description}
-            pinColor={marker.color || 'red'}
-            onPress={() => handleMarkerPress(marker)}
-          />
-        ))}
-      </MapView>
+      {region && (
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_GOOGLE}
+          region={region}
+          mapType={mapType}
+          showsUserLocation={showUserLocation}
+          showsMyLocationButton={false}
+          zoomEnabled={zoomEnabled}
+          scrollEnabled={scrollEnabled}
+          rotateEnabled={rotateEnabled}
+          pitchEnabled={pitchEnabled}
+          onPress={handleMapPress}
+          onRegionChangeComplete={handleRegionChangeComplete}
+        >
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              coordinate={marker.coordinate}
+              title={marker.title}
+              description={marker.description}
+              pinColor={marker.color || 'red'}
+              onPress={() => handleMarkerPress(marker)}
+            />
+          ))}
+        </MapView>
+      )}
+
+      {!region && (
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={[styles.locationText, { color: colors.text }]}>
+            Tap the location button to load map
+          </Text>
+        </View>
+      )}
 
       {/* Location Button */}
       {showLocationButton && (

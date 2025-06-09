@@ -18,9 +18,11 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { paymentsService, Payment, PaymentStats } from '@/src/services/PaymentsService';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function PendingPaymentsScreen() {
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [activeTab, setActiveTab] = useState<'ongoing' | 'pending' | 'completed'>('ongoing');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats] = useState<PaymentStats | null>(null);
@@ -103,25 +105,34 @@ export default function PendingPaymentsScreen() {
       );
 
       if (updatedPayment) {
-        Alert.alert('Success', 'Payment status updated successfully');
+        showAlert({
+          title: 'Success',
+          message: 'Payment status updated successfully',
+        });
         setIsStatusModalVisible(false);
         loadPayments(); // Refresh the list
         loadStats(); // Refresh stats
       } else {
-        Alert.alert('Error', 'Failed to update payment status');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to update payment status',
+        });
       }
     } catch (error) {
       console.error('Error updating payment status:', error);
-      Alert.alert('Error', 'Failed to update payment status. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to update payment status. Please try again.',
+      });
     }
   };
 
   // Handle payment deletion
   const handleDeletePayment = async (payment: Payment) => {
-    Alert.alert(
-      'Delete Payment',
-      `Are you sure you want to delete the payment for ${payment.clientName}?`,
-      [
+    showAlert({
+      title: 'Delete Payment',
+      message: `Are you sure you want to delete the payment for ${payment.clientName}?`,
+      buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -131,20 +142,29 @@ export default function PendingPaymentsScreen() {
               const success = await paymentsService.deletePayment(payment.id);
 
               if (success) {
-                Alert.alert('Success', 'Payment deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Payment deleted successfully',
+                });
                 loadPayments(); // Refresh the list
                 loadStats(); // Refresh stats
               } else {
-                Alert.alert('Error', 'Failed to delete payment');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete payment',
+                });
               }
             } catch (error) {
               console.error('Error deleting payment:', error);
-              Alert.alert('Error', 'Failed to delete payment. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete payment. Please try again.',
+              });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   // Load data on component mount
@@ -163,12 +183,12 @@ export default function PendingPaymentsScreen() {
 
   // Format currency
   const formatCurrency = (amount: number): string => {
-    return `$${amount.toLocaleString()}`;
+    return `₹${amount.toLocaleString()}`;
   };
 
   // Format date
   const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -364,6 +384,9 @@ export default function PendingPaymentsScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -571,7 +594,6 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -580,20 +602,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
   },
   modalCancelButton: {
     fontSize: 16,
-    color: '#666',
   },
   modalSaveButton: {
     fontSize: 16,
-    color: '#007AFF',
     fontWeight: '600',
   },
   modalContent: {
@@ -604,41 +622,30 @@ const styles = StyleSheet.create({
   modalPaymentName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 8,
   },
   modalPaymentAmount: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#dc3545',
     marginBottom: 30,
   },
   modalSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 15,
   },
   statusOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderRadius: 8,
     marginBottom: 10,
   },
-  selectedStatusOption: {
-    backgroundColor: '#000',
-  },
   statusOptionText: {
     fontSize: 16,
-    color: '#000',
     fontWeight: '500',
-  },
-  selectedStatusOptionText: {
-    color: '#fff',
   },
   floatingButton: {
     position: 'absolute',
@@ -647,7 +654,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

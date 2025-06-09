@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  ScrollView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
@@ -155,9 +156,13 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
             </View>
 
             {/* Menu items */}
-            <View style={styles.menuSection}>
+            <ScrollView
+              style={styles.menuSection}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.menuScrollContent}
+            >
               {menuItems.map(renderMenuItem)}
-            </View>
+            </ScrollView>
           </SafeAreaView>
         </Animated.View>
       </TouchableOpacity>
@@ -174,7 +179,6 @@ const styles = StyleSheet.create({
   drawer: {
     width: DRAWER_WIDTH,
     height: '100%',
-    backgroundColor: '#fff',
     elevation: 16,
     shadowColor: '#000',
     shadowOffset: { width: 2, height: 0 },
@@ -189,7 +193,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 30,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   logoContainer: {
     alignItems: 'center',
@@ -203,6 +206,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 20,
   },
+  menuScrollContent: {
+    paddingBottom: 20,
+  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -212,20 +218,13 @@ const styles = StyleSheet.create({
     marginVertical: 2,
     borderRadius: 25,
   },
-  activeMenuItem: {
-    backgroundColor: '#000',
-  },
   menuIcon: {
     marginRight: 15,
     width: 24,
   },
   menuText: {
     fontSize: 16,
-    color: '#000000',
     fontWeight: '500',
     flex: 1,
-  },
-  activeMenuText: {
-    color: '#ffffff',
   },
 });

@@ -270,7 +270,7 @@ export default function EditIncomeScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount ($) *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount (₹) *</Text>
             <TextInput
               style={[
                 styles.textInput,

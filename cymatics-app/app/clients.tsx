@@ -22,14 +22,17 @@ import ClientsService, { Client } from '@/src/services/ClientsService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 import CustomHeader from '@/src/components/CustomHeader';
 import ClientDetailModal from '@/src/components/modals/ClientDetailModal';
 
 export default function ClientsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,45 @@ export default function ClientsScreen() {
   useEffect(() => {
     loadClients();
   }, []);
+
+  // Apply filters when clients or searchQuery change
+  useEffect(() => {
+    if (clients.length > 0) {
+      applyFilters(clients, searchQuery);
+    }
+  }, [clients, searchQuery]);
+
+  // Apply search filter
+  const applyFilters = (clientList: Client[], query: string) => {
+    let filtered = [...clientList];
+
+    // Apply search filter
+    if (query.trim()) {
+      const searchQuery = query.toLowerCase();
+      filtered = filtered.filter(client =>
+        (client.name && client.name.toLowerCase().includes(searchQuery)) ||
+        (client.email && client.email.toLowerCase().includes(searchQuery)) ||
+        (client.phone && client.phone.toLowerCase().includes(searchQuery)) ||
+        (client.company && client.company.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    setFilteredClients(filtered);
+  };
+
+  // Debounced search effect for real-time search
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setIsSearching(true);
+      // Use a small timeout to simulate search loading
+      const timeoutId = setTimeout(() => {
+        setIsSearching(false);
+      }, 200);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setIsSearching(false);
+    }
+  }, [searchQuery]);
 
   // Refresh data when screen comes into focus (e.g., returning from create screen)
   useFocusEffect(
@@ -64,7 +106,9 @@ export default function ClientsScreen() {
       console.log('Clients pagination:', response?.pagination);
 
       // Ensure clients is always an array
-      setClients(Array.isArray(response?.clients) ? response.clients : []);
+      const newClients = Array.isArray(response?.clients) ? response.clients : [];
+      setClients(newClients);
+      applyFilters(newClients, searchQuery);
     } catch (error) {
       console.error('Failed to load clients:', error);
       setError('Failed to load clients. Please try again.');
@@ -76,18 +120,13 @@ export default function ClientsScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadClients(searchQuery || undefined);
+    await loadClients();
     setIsRefreshing(false);
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      setIsSearching(true);
-      await loadClients(query.trim());
-    } else {
-      await loadClients();
-    }
+    applyFilters(clients, query);
   };
 
   const handleMenuPress = () => {
@@ -112,7 +151,10 @@ export default function ClientsScreen() {
       });
     } catch (error) {
       console.error('Failed to share client:', error);
-      Alert.alert('Error', 'Failed to share client information');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to share client information',
+      });
     }
   };
 
@@ -125,12 +167,18 @@ export default function ClientsScreen() {
         if (supported) {
           Linking.openURL(phoneUrl);
         } else {
-          Alert.alert('Error', 'Phone calls are not supported on this device');
+          showAlert({
+            title: 'Error',
+            message: 'Phone calls are not supported on this device',
+          });
         }
       })
       .catch((error) => {
         console.error('Failed to open phone app:', error);
-        Alert.alert('Error', 'Failed to open phone app');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to open phone app',
+        });
       });
   };
 
@@ -139,10 +187,10 @@ export default function ClientsScreen() {
   };
 
   const handleDeletePress = (client: Client) => {
-    Alert.alert(
-      'Delete Client',
-      `Are you sure you want to delete "${client.name}" from ${client.company}? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Client',
+      message: `Are you sure you want to delete "${client.name}" from ${client.company}? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -159,21 +207,31 @@ export default function ClientsScreen() {
                 // Remove the client from local state
                 const updatedClients = clients.filter(c => c.id !== client.id);
                 setClients(updatedClients);
+                applyFilters(updatedClients, searchQuery);
 
-                Alert.alert('Success', 'Client deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Client deleted successfully',
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete client. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete client. Please try again.',
+                });
               }
             } catch (error) {
               console.error('Delete client error:', error);
-              Alert.alert('Error', 'Failed to delete client. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete client. Please try again.',
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleClientPress = (client: Client) => {
@@ -267,14 +325,20 @@ export default function ClientsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <CustomHeader
         title="Clients"
-        subtitle={`${(clients || []).length} client${(clients || []).length !== 1 ? 's' : ''}`}
         showBackButton={true}
         onBackPress={handleBackPress}
+        rightComponent={
+          <View style={styles.headerCountContainer}>
+            <Text style={[styles.headerCountText, { color: colors.muted }]}>
+              {filteredClients.length} client{filteredClients.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        }
       />
 
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-        <View style={[styles.searchInputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      <View style={[styles.searchContainer, { backgroundColor: 'transparent' }]}>
+        <View style={[styles.searchInputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <MaterialIcons name="search" size={20} color={colors.muted} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -309,9 +373,17 @@ export default function ClientsScreen() {
         renderErrorState()
       ) : !clients || clients.length === 0 ? (
         renderEmptyState()
+      ) : filteredClients.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MaterialIcons name="search-off" size={64} color={colors.muted} />
+          <Text style={[styles.emptyStateTitle, { color: colors.muted }]}>No Clients Found</Text>
+          <Text style={[styles.emptyStateText, { color: colors.placeholder }]}>
+            No clients match "{searchQuery}"
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={clients || []}
+          data={filteredClients}
           renderItem={renderClientItem}
           keyExtractor={(item) => item.id.toString()}
           style={styles.clientsList}
@@ -348,6 +420,9 @@ export default function ClientsScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -400,16 +475,25 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
   },
+  headerCountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  headerCountText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 15,
+    marginHorizontal: 10,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 10,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 7,
     borderWidth: 1,
   },
   searchIcon: {
@@ -417,7 +501,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 7,
     fontSize: 16,
     color: '#000',
   },

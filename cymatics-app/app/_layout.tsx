@@ -31,6 +31,8 @@ function AppContent() {
         <Stack.Screen name="create-expense" options={{ headerShown: false }} />
         <Stack.Screen name="create-client" options={{ headerShown: false }} />
         <Stack.Screen name="create-payment" options={{ headerShown: false }} />
+        <Stack.Screen name="create-asset" options={{ headerShown: false }} />
+        <Stack.Screen name="create-entertainment" options={{ headerShown: false }} />
         <Stack.Screen name="edit-client" options={{ headerShown: false }} />
         <Stack.Screen name="edit-project" options={{ headerShown: false }} />
         <Stack.Screen name="edit-income" options={{ headerShown: false }} />

@@ -19,6 +19,7 @@ import projectsService, { Project } from '@/src/services/ProjectsService';
 import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 // Expense categories with icons (matching the expense screen)
 const EXPENSE_CATEGORIES = [
@@ -54,6 +55,7 @@ export default function EditExpenseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   // Form state
   const [formData, setFormData] = useState<FormData>({
@@ -101,13 +103,19 @@ export default function EditExpenseScreen() {
           projectId: expense.projectId || undefined,
         });
       } else {
-        Alert.alert('Error', 'Failed to load expense data');
-        router.back();
+        showAlert({
+          title: 'Error',
+          message: 'Failed to load expense data',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
       }
     } catch (error) {
       console.error('Error loading expense data:', error);
-      Alert.alert('Error', 'Failed to load expense data');
-      router.back();
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load expense data',
+        buttons: [{ text: 'OK', onPress: () => router.back() }],
+      });
     } finally {
       setIsLoadingData(false);
     }
@@ -124,7 +132,10 @@ export default function EditExpenseScreen() {
       }
     } catch (error) {
       console.error('Error loading projects:', error);
-      Alert.alert('Error', 'Failed to load projects. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load projects. Please try again.',
+      });
     } finally {
       setIsLoadingProjects(false);
     }
@@ -178,12 +189,18 @@ export default function EditExpenseScreen() {
   // Handle form submission
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
     if (!id) {
-      Alert.alert('Error', 'Expense ID is missing');
+      showAlert({
+        title: 'Error',
+        message: 'Expense ID is missing',
+      });
       return;
     }
 
@@ -203,22 +220,28 @@ export default function EditExpenseScreen() {
       const updatedExpense = await financialService.updateExpense(parseInt(id), updateData);
 
       if (updatedExpense) {
-        Alert.alert(
-          'Success',
-          'Expense entry updated successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Expense entry updated successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to update expense entry. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to update expense entry. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error updating expense:', error);
-      Alert.alert('Error', 'Failed to update expense entry. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to update expense entry. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -276,8 +299,8 @@ export default function EditExpenseScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Expense Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Expense Details</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Expense Details</Text>
 
           <DatePicker
             label="Date *"
@@ -288,44 +311,44 @@ export default function EditExpenseScreen() {
           />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Category *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Category *</Text>
             <TouchableOpacity
-              style={[styles.dropdownButton, errors.category && styles.inputError]}
+              style={[styles.dropdownButton, { backgroundColor: colors.surface, borderColor: colors.border }, errors.category && styles.inputError]}
               onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
             >
               <View style={styles.categoryRow}>
                 <MaterialIcons
                   name={getSelectedCategory().icon as any}
                   size={20}
-                  color={formData.category ? "#000" : "#999"}
+                  color={formData.category ? colors.text : colors.placeholder}
                 />
-                <Text style={[styles.dropdownText, !formData.category && styles.placeholderText]}>
+                <Text style={[styles.dropdownText, { color: formData.category ? colors.text : colors.placeholder }, !formData.category && styles.placeholderText]}>
                   {getSelectedCategory().name}
                 </Text>
               </View>
               <MaterialIcons
                 name={showCategoryDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
                 size={24}
-                color="#666"
+                color={colors.muted}
               />
             </TouchableOpacity>
             {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
 
             {showCategoryDropdown && (
-              <View style={styles.dropdown}>
+              <View style={[styles.dropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
                   {EXPENSE_CATEGORIES.map((category) => (
                     <TouchableOpacity
                       key={category.name}
-                      style={styles.dropdownItem}
+                      style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         updateFormData('category', category.name);
                         setShowCategoryDropdown(false);
                       }}
                     >
                       <View style={styles.categoryRow}>
-                        <MaterialIcons name={category.icon as any} size={20} color="#000" />
-                        <Text style={styles.dropdownItemText}>{category.name}</Text>
+                        <MaterialIcons name={category.icon as any} size={20} color={colors.text} />
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>{category.name}</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -335,38 +358,38 @@ export default function EditExpenseScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Description *</Text>
             <TextInput
-              style={[styles.textInput, errors.description && styles.inputError]}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.description && styles.inputError]}
               value={formData.description}
               onChangeText={(value) => updateFormData('description', value)}
               placeholder="Enter expense description"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
             />
             {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Amount ($) *</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Amount (₹) *</Text>
             <TextInput
-              style={[styles.textInput, errors.amount && styles.inputError]}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }, errors.amount && styles.inputError]}
               value={formData.amount.toString()}
               onChangeText={(value) => updateFormData('amount', value)}
               placeholder="0.00"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               keyboardType="numeric"
             />
             {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notes</Text>
+            <Text style={[styles.inputLabel, { color: colors.text }]}>Notes</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
               value={formData.notes}
               onChangeText={(value) => updateFormData('notes', value)}
               placeholder="Additional notes (optional)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={3}
             />
@@ -374,9 +397,9 @@ export default function EditExpenseScreen() {
         </View>
 
         {/* Project Association */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.switchRow}>
-            <Text style={styles.sectionTitle}>Project Expense</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Project Expense</Text>
             <Switch
               value={formData.projectExpense}
               onValueChange={handleProjectExpenseToggle}
@@ -391,45 +414,45 @@ export default function EditExpenseScreen() {
 
           {formData.projectExpense && (
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Project *</Text>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Project *</Text>
               {isLoadingProjects ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#000" />
-                  <Text style={styles.loadingText}>Loading projects...</Text>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.muted }]}>Loading projects...</Text>
                 </View>
               ) : (
                 <TouchableOpacity
-                  style={[styles.dropdownButton, errors.projectId && styles.inputError]}
+                  style={[styles.dropdownButton, { backgroundColor: colors.surface, borderColor: colors.border }, errors.projectId && styles.inputError]}
                   onPress={() => setShowProjectDropdown(!showProjectDropdown)}
                 >
-                  <Text style={[styles.dropdownText, !formData.projectId && styles.placeholderText]}>
+                  <Text style={[styles.dropdownText, { color: formData.projectId ? colors.text : colors.placeholder }, !formData.projectId && styles.placeholderText]}>
                     {getSelectedProjectName()}
                   </Text>
                   <MaterialIcons
                     name={showProjectDropdown ? "keyboard-arrow-up" : "keyboard-arrow-down"}
                     size={24}
-                    color="#666"
+                    color={colors.muted}
                   />
                 </TouchableOpacity>
               )}
               {errors.projectId && <Text style={styles.errorText}>{errors.projectId}</Text>}
 
               {showProjectDropdown && (
-                <View style={styles.dropdown}>
+                <View style={[styles.dropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
                     {(projects || []).map((project) => (
                       <TouchableOpacity
                         key={project.id}
-                        style={styles.dropdownItem}
+                        style={[styles.dropdownItem, { borderBottomColor: colors.border }]}
                         onPress={() => {
                           updateFormData('projectId', project.id);
                           setShowProjectDropdown(false);
                         }}
                       >
-                        <Text style={styles.dropdownItemText}>
+                        <Text style={[styles.dropdownItemText, { color: colors.text }]}>
                           {project.code} - {project.name}
                         </Text>
-                        <Text style={styles.dropdownItemSubtext}>
+                        <Text style={[styles.dropdownItemSubtext, { color: colors.muted }]}>
                           {project.client?.name || 'No client'}
                         </Text>
                       </TouchableOpacity>
@@ -446,19 +469,22 @@ export default function EditExpenseScreen() {
       </ScrollView>
 
       {/* Bottom Save Button */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20 }]}>
+      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 20, backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity
           onPress={handleSubmit}
-          style={[styles.bottomSaveButton, isLoading && styles.disabledButton]}
+          style={[styles.bottomSaveButton, { backgroundColor: colors.primary }, isLoading && styles.disabledButton]}
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.background} />
           ) : (
-            <Text style={styles.saveButtonText}>Update Expense</Text>
+            <Text style={[styles.saveButtonText, { color: colors.background }]}>Update Expense</Text>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

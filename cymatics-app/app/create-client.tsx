@@ -14,10 +14,11 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import ClientsService, { CreateClientData } from '@/src/services/ClientsService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 interface FormData {
   name: string;
@@ -29,6 +30,7 @@ interface FormData {
 export default function CreateClientScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     company: '',
@@ -38,6 +40,7 @@ export default function CreateClientScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { showAlert, AlertComponent } = useThemedAlert();
 
   const updateFormData = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -76,7 +79,10 @@ export default function CreateClientScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fix the errors and try again.');
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please fix the errors and try again.',
+      });
       return;
     }
 
@@ -93,22 +99,28 @@ export default function CreateClientScreen() {
       const result = await ClientsService.createClient(clientData);
 
       if (result) {
-        Alert.alert(
-          'Success',
-          'Client created successfully!',
-          [
+        showAlert({
+          title: 'Success',
+          message: 'Client created successfully!',
+          buttons: [
             {
               text: 'OK',
               onPress: () => router.back(),
             },
-          ]
-        );
+          ],
+        });
       } else {
-        Alert.alert('Error', 'Failed to create client. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to create client. Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error creating client:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -116,14 +128,14 @@ export default function CreateClientScreen() {
 
   const handleBack = () => {
     if (Object.values(formData).some(value => value.trim())) {
-      Alert.alert(
-        'Discard Changes',
-        'Are you sure you want to go back? Your changes will be lost.',
-        [
+      showAlert({
+        title: 'Discard Changes',
+        message: 'Are you sure you want to go back? Your changes will be lost.',
+        buttons: [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-        ]
-      );
+        ],
+      });
     } else {
       router.back();
     }
@@ -232,6 +244,9 @@ export default function CreateClientScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -325,7 +340,6 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: '#ff6b6b',
-    backgroundColor: '#fff5f5',
   },
   errorText: {
     fontSize: 12,

@@ -5,6 +5,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 const chartWidth = screenWidth - 40;
+// Pie chart specific width - reduced size for better label spacing
+const pieChartWidth = Math.max(screenWidth - 160, 240);
 
 interface ChartData {
   value: number;
@@ -55,10 +57,31 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       borderRadius: 16,
     },
     propsForDots: {
-      r: '6',
+      r: '5', // Slightly smaller for better visibility
       strokeWidth: '2',
       stroke: colors.primary,
+      fill: colors.background, // Hollow dots for better contrast
     },
+    propsForBackgroundLines: {
+      strokeDasharray: '', // Solid grid lines
+      stroke: hexToRgba(colors.border, 0.3),
+      strokeWidth: 1,
+    },
+    propsForLabels: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    formatYLabel: (value: string) => {
+      const num = parseFloat(value);
+      // Ensure unique Y-axis values by avoiding duplicate formatting
+      if (isNaN(num)) return '0';
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+      return Math.round(num).toString();
+    },
+    // Prevent Y-axis duplication by ensuring proper step calculation
+    yAxisInterval: 1,
+    segments: 4, // Limit number of Y-axis segments to prevent overcrowding
   };
 
   // Transform data for react-native-chart-kit
@@ -133,11 +156,20 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
           <BarChart
             data={transformDataForBarChart(incomeExpenseData?.income, incomeExpenseData?.expense)}
             width={chartWidth - 40}
-            height={220}
-            chartConfig={chartConfig}
+            height={240} // Increased height to prevent label overlap
+            chartConfig={{
+              ...chartConfig,
+              paddingTop: 20, // Add top padding for better spacing
+              paddingBottom: 40, // Add bottom padding for X-axis labels
+            }}
             verticalLabelRotation={0}
             showValuesOnTopOfBars={true}
             fromZero={true}
+            withInnerLines={true}
+            withHorizontalLabels={true}
+            withVerticalLabels={true}
+            yAxisLabel="₹"
+            yAxisSuffix=""
             style={{
               marginVertical: 8,
               borderRadius: 16,
@@ -150,18 +182,31 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
       <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
         <Text style={[styles.chartTitle, { color: colors.text }]}>Project Status Distribution</Text>
         <View style={styles.pieChartWrapper}>
+          {/* Compact Legend at Top */}
+          <View style={styles.pieChartLegend}>
+            {transformDataForPieChart(projectData?.byStatus).map((item, index) => (
+              <View key={index} style={styles.legendItem}>
+                <View style={[styles.legendColor, { backgroundColor: item.color }]} />
+                <Text style={[styles.legendText, { color: colors.text }]}>
+                  {item.name} ({item.population})
+                </Text>
+              </View>
+            ))}
+          </View>
+
           <PieChart
             data={transformDataForPieChart(projectData?.byStatus)}
-            width={chartWidth - 40}
-            height={220}
+            width={pieChartWidth}
+            height={160}
             chartConfig={chartConfig}
             accessor="population"
             backgroundColor="transparent"
-            paddingLeft="15"
-            center={[10, 50]}
-            absolute
+            paddingLeft="10"
+            center={[0, -10]}
+            absolute={false}
+            hasLegend={false}
             style={{
-              marginVertical: 8,
+              marginVertical: 4,
               borderRadius: 16,
             }}
           />
@@ -175,10 +220,12 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
           <LineChart
             data={transformDataForLineChart(expenseData?.trends)}
             width={chartWidth - 40}
-            height={220}
+            height={240} // Increased height to prevent label overlap
             chartConfig={{
               ...chartConfig,
               color: (opacity = 1) => hexToRgba(colors.error || '#ff6b6b', opacity),
+              paddingTop: 20, // Add top padding for better spacing
+              paddingBottom: 40, // Add bottom padding for X-axis labels
             }}
             bezier
             style={{
@@ -189,6 +236,11 @@ const EnhancedCharts: React.FC<EnhancedChartsProps> = ({
             withShadow={false}
             withVerticalLabels={true}
             withHorizontalLabels={true}
+            withInnerLines={true}
+            withOuterLines={true}
+            yAxisLabel="₹"
+            yAxisSuffix=""
+            // Remove xAxisLabel to prevent overlap with month labels
           />
         </View>
       </View>
@@ -226,7 +278,38 @@ const styles = StyleSheet.create({
   },
   pieChartWrapper: {
     alignItems: 'center',
-    paddingVertical: 20,
+    justifyContent: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    overflow: 'visible',
+    minHeight: 220,
+  },
+  pieChartLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 5,
+    width: '100%',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    marginBottom: 6,
+    flexShrink: 1,
+  },
+  legendColor: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    fontWeight: '500',
+    flexShrink: 1,
   },
 
 });
