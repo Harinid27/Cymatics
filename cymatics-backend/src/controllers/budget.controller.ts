@@ -21,7 +21,9 @@ class BudgetController {
    */
   async getBudgetCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      console.log('🔥 BudgetController: Getting DJANGO budget categories - NEW CODE ACTIVE! 🔥');
       const categories = await budgetService.getBudgetCategories();
+      console.log('🔥 BudgetController: Categories retrieved:', categories);
 
       sendSuccessResponse(res, categories, 'Budget categories retrieved successfully', 200);
     } catch (error) {

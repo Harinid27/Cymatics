@@ -67,7 +67,31 @@ export default function ClientDetailModal({
   const [recentProjects, setRecentProjects] = useState<ClientProject[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
-  if (!client) return null;
+  const loadRecentProjects = async () => {
+    if (!client) return;
+
+    console.log(`ClientDetailModal: Loading projects for client ${client.id} (${client.name})`);
+    setIsLoadingProjects(true);
+    try {
+      const projects = await ClientsService.getClientProjects(client.id);
+      console.log(`ClientDetailModal: Received projects:`, projects);
+
+      if (projects && Array.isArray(projects)) {
+        // Get the 2 most recent projects
+        const recentProjects = projects.slice(0, 2);
+        console.log(`ClientDetailModal: Setting ${recentProjects.length} recent projects`);
+        setRecentProjects(recentProjects);
+      } else {
+        console.log('ClientDetailModal: No projects found or invalid response');
+        setRecentProjects([]);
+      }
+    } catch (error) {
+      console.error('ClientDetailModal: Failed to load client projects:', error);
+      setRecentProjects([]);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
 
   // Load recent projects when modal opens
   useEffect(() => {
@@ -76,20 +100,8 @@ export default function ClientDetailModal({
     }
   }, [visible, client]);
 
-  const loadRecentProjects = async () => {
-    setIsLoadingProjects(true);
-    try {
-      const projects = await ClientsService.getClientProjects(client.id);
-      if (projects) {
-        // Get the 2 most recent projects
-        setRecentProjects(projects.slice(0, 2));
-      }
-    } catch (error) {
-      console.error('Failed to load client projects:', error);
-    } finally {
-      setIsLoadingProjects(false);
-    }
-  };
+  // Early return after all hooks
+  if (!client) return null;
 
   const handleSeeAllProjects = () => {
     onClose();

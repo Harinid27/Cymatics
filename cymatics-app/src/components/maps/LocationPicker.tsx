@@ -51,16 +51,54 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  const handleCurrentLocation = async () => {
+    setIsGettingCurrentLocation(true);
+    try {
+      console.log('LocationPicker: Getting current location...');
+      const location = await MapsService.getCurrentLocation();
+      console.log('LocationPicker: Current location result:', location);
+
+      if (location) {
+        setSelectedCoordinates(location);
+        setShowSearchResults(false);
+        await reverseGeocodeLocation(location);
+        console.log('LocationPicker: Successfully set current location:', location);
+      } else {
+        console.log('LocationPicker: Failed to get current location - falling back to New York');
+        // Fallback to New York if location cannot be determined
+        const fallbackLocation = {
+          latitude: 40.7128,
+          longitude: -74.0060,
+        };
+        setSelectedCoordinates(fallbackLocation);
+        setSelectedAddress('New York, NY, USA');
+        setSearchQuery('New York, NY, USA');
+      }
+    } catch (error) {
+      console.error('LocationPicker: Current location error:', error);
+      console.log('LocationPicker: Error getting location - falling back to New York');
+      // Fallback to New York if there's an error
+      const fallbackLocation = {
+        latitude: 40.7128,
+        longitude: -74.0060,
+      };
+      setSelectedCoordinates(fallbackLocation);
+      setSelectedAddress('New York, NY, USA');
+      setSearchQuery('New York, NY, USA');
+    } finally {
+      setIsGettingCurrentLocation(false);
+    }
+  };
+
   useEffect(() => {
     if (initialLocation) {
       setSelectedCoordinates(initialLocation);
       reverseGeocodeLocation(initialLocation);
-    } else {
-      // Don't set any default location - let user choose
-      setSelectedCoordinates(null);
-      setSelectedAddress('');
+    } else if (visible) {
+      // Automatically get current location when modal opens
+      handleCurrentLocation();
     }
-  }, [initialLocation]);
+  }, [initialLocation, visible]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -165,34 +203,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     setShowSearchResults(false);
   };
 
-  const handleCurrentLocation = async () => {
-    setIsGettingCurrentLocation(true);
-    try {
-      console.log('Getting current location...');
-      const location = await MapsService.getCurrentLocation();
-      console.log('Current location result:', location);
 
-      if (location) {
-        setSelectedCoordinates(location);
-        setShowSearchResults(false);
-        await reverseGeocodeLocation(location);
-        console.log('Successfully set current location:', location);
-      } else {
-        Alert.alert(
-          'Location Error',
-          'Unable to get your current location. Please check your location permissions and try again.'
-        );
-      }
-    } catch (error) {
-      console.error('Current location error:', error);
-      Alert.alert(
-        'Location Error',
-        'Unable to get your current location. Please ensure location services are enabled and try again.'
-      );
-    } finally {
-      setIsGettingCurrentLocation(false);
-    }
-  };
 
   const handleConfirm = () => {
     if (selectedCoordinates && selectedAddress) {
@@ -298,12 +309,17 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
               description: selectedAddress,
               color: colors.primary,
             }] : []}
-            initialRegion={!selectedCoordinates ? {
+            initialRegion={selectedCoordinates ? {
+              latitude: selectedCoordinates.latitude,
+              longitude: selectedCoordinates.longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            } : {
               latitude: 40.7128,
               longitude: -74.0060,
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
-            } : undefined}
+            }}
             onMapPress={handleMapPress}
             showLocationButton={true}
             style={styles.map}

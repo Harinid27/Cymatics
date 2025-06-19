@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import ClientsService, { UpdateClientData } from '@/src/services/ClientsService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 interface FormData {
   name: string;
@@ -28,6 +29,7 @@ interface FormData {
 
 export default function EditClientScreen() {
   const { colors } = useTheme();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -63,13 +65,19 @@ export default function EditClientScreen() {
           email: clientData.email || '',
         });
       } else {
-        Alert.alert('Error', 'Failed to load client data');
-        router.back();
+        showAlert({
+          title: 'Error',
+          message: 'Failed to load client data',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
       }
     } catch (error) {
       console.error('Error loading client data:', error);
-      Alert.alert('Error', 'Failed to load client data');
-      router.back();
+      showAlert({
+        title: 'Error',
+        message: 'Failed to load client data',
+        buttons: [{ text: 'OK', onPress: () => router.back() }],
+      });
     } finally {
       setIsLoadingData(false);
     }
@@ -134,22 +142,25 @@ export default function EditClientScreen() {
       const result = await ClientsService.updateClient(parseInt(id), updateData);
 
       if (result) {
-        Alert.alert(
-          'Success',
-          'Client updated successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        showAlert({
+          title: 'Success',
+          message: 'Client updated successfully!',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
       } else {
-        Alert.alert('Error', 'Failed to update client. Please try again.');
+        showAlert({
+          title: 'Error',
+          message: 'Failed to update client. Please try again.',
+          buttons: [{ text: 'OK' }],
+        });
       }
     } catch (error) {
       console.error('Error updating client:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'An unexpected error occurred. Please try again.',
+        buttons: [{ text: 'OK' }],
+      });
     } finally {
       setIsLoading(false);
     }
@@ -170,6 +181,9 @@ export default function EditClientScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.muted }]}>Loading client data...</Text>
         </View>
+
+        {/* Themed Alert */}
+        <AlertComponent />
       </SafeAreaView>
     );
   }
@@ -277,6 +291,9 @@ export default function EditClientScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

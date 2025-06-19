@@ -46,6 +46,24 @@ class ClientController {
   }
 
   /**
+   * Get projects for a specific client
+   */
+  async getClientProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      console.log(`ClientController: Getting projects for client ID: ${id}`);
+
+      const projects = await clientService.getClientProjects(parseInt(id));
+      console.log(`ClientController: Found ${projects.length} projects for client ${id}`);
+
+      sendSuccessResponse(res, projects, 'Client projects retrieved successfully', 200);
+    } catch (error) {
+      console.error(`ClientController: Error getting projects for client ${req.params.id}:`, error);
+      next(error);
+    }
+  }
+
+  /**
    * Get client by name
    */
   async getClientByName(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -209,6 +227,8 @@ class ClientController {
       next(error);
     }
   }
+
+
 
   /**
    * Get client data for editing (specific format for frontend)

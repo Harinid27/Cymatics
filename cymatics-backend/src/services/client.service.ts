@@ -39,6 +39,7 @@ export interface ClientWithProjects {
     projects: number;
   };
   totalAmount: number;
+  projectCount: number;
 }
 
 export interface ClientQueryOptions {
@@ -89,6 +90,7 @@ class ClientService {
       return {
         ...client,
         totalAmount,
+        projectCount: client._count.projects,
       };
     } catch (error) {
       logger.error('Error creating client:', error);
@@ -149,10 +151,11 @@ class ClientService {
         take: limit,
       });
 
-      // Calculate total amount for each client
+      // Calculate total amount and map project count for each client
       const clientsWithTotals = clients.map(client => ({
         ...client,
         totalAmount: client.projects.reduce((sum, project) => sum + project.amount, 0),
+        projectCount: client._count.projects,
       }));
 
       const pagination = calculatePagination(page, limit, total);
@@ -203,9 +206,60 @@ class ClientService {
       return {
         ...client,
         totalAmount,
+        projectCount: client._count.projects,
       };
     } catch (error) {
       logger.error('Error getting client by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get projects for a specific client
+   */
+  async getClientProjects(clientId: number): Promise<any[]> {
+    try {
+      console.log(`ClientService: Fetching projects for client ID: ${clientId}`);
+
+      const projects = await prisma.project.findMany({
+        where: { clientId },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          amount: true,
+          status: true,
+          shootStartDate: true,
+          shootEndDate: true,
+          location: true,
+          createdAt: true,
+        },
+        orderBy: [
+          { status: 'asc' }, // This will help with sorting: ongoing, pending, completed
+          { createdAt: 'desc' },
+        ],
+      });
+
+      console.log(`ClientService: Found ${projects.length} projects for client ${clientId}`);
+
+      // Sort projects: Ongoing -> Pending -> Completed
+      const sortedProjects = projects.sort((a, b) => {
+        const statusOrder = { 'ongoing': 0, 'active': 0, 'pending': 1, 'completed': 2 };
+        const aOrder = statusOrder[a.status?.toLowerCase() as keyof typeof statusOrder] ?? 3;
+        const bOrder = statusOrder[b.status?.toLowerCase() as keyof typeof statusOrder] ?? 3;
+
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        // If same status, sort by creation date (newest first)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      console.log(`ClientService: Returning ${sortedProjects.length} sorted projects for client ${clientId}`);
+      return sortedProjects;
+    } catch (error) {
+      logger.error('Error getting client projects:', error);
       throw error;
     }
   }
@@ -246,6 +300,7 @@ class ClientService {
       return {
         ...client,
         totalAmount,
+        projectCount: client._count.projects,
       };
     } catch (error) {
       logger.error('Error getting client by name:', error);
@@ -307,6 +362,7 @@ class ClientService {
       return {
         ...updatedClient,
         totalAmount,
+        projectCount: updatedClient._count.projects,
       };
     } catch (error) {
       logger.error('Error updating client:', error);

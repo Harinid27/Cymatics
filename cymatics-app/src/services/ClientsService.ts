@@ -27,6 +27,10 @@ export interface ClientProject {
   name: string | null;
   amount: number;
   status: string | null;
+  shootStartDate?: string | null;
+  shootEndDate?: string | null;
+  location?: string | null;
+  createdAt?: string;
 }
 
 export interface CreateClientData {
@@ -290,15 +294,21 @@ class ClientsService {
    */
   async getClientProjects(clientId: number): Promise<ClientProject[] | null> {
     try {
+      console.log(`ClientsService: Fetching projects for client ID: ${clientId}`);
       const response = await ApiService.get<ClientProject[]>(`${this.baseEndpoint}/${clientId}/projects`);
 
+      console.log('ClientsService: Client projects API response:', response);
+
       if (response.success && response.data) {
-        return Array.isArray(response.data) ? response.data : [];
+        const projects = Array.isArray(response.data) ? response.data : [];
+        console.log(`ClientsService: Successfully fetched ${projects.length} projects for client ${clientId}`);
+        return projects;
       }
 
+      console.error('ClientsService: Failed to fetch client projects - no data in response');
       return null;
     } catch (error) {
-      console.error('Failed to fetch client projects:', error);
+      console.error('ClientsService: Failed to fetch client projects:', error);
       return null;
     }
   }

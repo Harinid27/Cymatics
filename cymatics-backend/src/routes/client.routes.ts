@@ -36,17 +36,6 @@ router.get('/stats', clientController.getClientStats);
 router.get('/dropdown', clientController.getClientsDropdown);
 
 /**
- * @route   GET /api/clients/:id
- * @desc    Get client by ID
- * @access  Private
- */
-router.get(
-  '/:id',
-  validateParams(Joi.object({ id: commonSchemas.id })),
-  clientController.getClientById
-);
-
-/**
  * @route   GET /api/clients/name/:name
  * @desc    Get client by name
  * @access  Private
@@ -58,6 +47,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/clients/:id/projects
+ * @desc    Get projects for a specific client
+ * @access  Private
+ */
+router.get(
+  '/:id/projects',
+  validateParams(Joi.object({ id: commonSchemas.id })),
+  clientController.getClientProjects
+);
+
+/**
  * @route   GET /api/clients/:id/data
  * @desc    Get client data for editing
  * @access  Private
@@ -66,6 +66,17 @@ router.get(
   '/:id/data',
   validateParams(Joi.object({ id: commonSchemas.id })),
   clientController.getClientData
+);
+
+/**
+ * @route   GET /api/clients/:id
+ * @desc    Get client by ID
+ * @access  Private
+ */
+router.get(
+  '/:id',
+  validateParams(Joi.object({ id: commonSchemas.id })),
+  clientController.getClientById
 );
 
 /**

@@ -21,7 +21,7 @@ export default function ClientProjectsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { clientId, clientName } = useLocalSearchParams();
-  
+
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -29,13 +29,22 @@ export default function ClientProjectsScreen() {
 
   // Load projects for the client
   const loadProjects = async () => {
-    if (!clientId) return;
-    
+    if (!clientId) {
+      console.error('ClientProjectsScreen: No client ID provided');
+      setError('No client ID provided');
+      setIsLoading(false);
+      return;
+    }
+
+    console.log(`ClientProjectsScreen: Loading projects for client ID: ${clientId}, name: ${clientName}`);
+
     try {
       setError(null);
       const clientProjects = await ClientsService.getClientProjects(Number(clientId));
-      
-      if (clientProjects) {
+
+      console.log(`ClientProjectsScreen: Received projects:`, clientProjects);
+
+      if (clientProjects && Array.isArray(clientProjects)) {
         // Sort projects: Ongoing -> Pending -> Completed
         const sortedProjects = clientProjects.sort((a, b) => {
           const statusOrder = { 'ongoing': 0, 'active': 0, 'pending': 1, 'completed': 2 };
@@ -43,13 +52,15 @@ export default function ClientProjectsScreen() {
           const bOrder = statusOrder[b.status?.toLowerCase() as keyof typeof statusOrder] ?? 3;
           return aOrder - bOrder;
         });
+        console.log(`ClientProjectsScreen: Setting ${sortedProjects.length} sorted projects`);
         setProjects(sortedProjects);
       } else {
+        console.log('ClientProjectsScreen: No projects found or invalid response');
         setProjects([]);
-        setError('Failed to load projects');
+        setError('No projects found for this client');
       }
     } catch (error) {
-      console.error('Failed to load client projects:', error);
+      console.error('ClientProjectsScreen: Failed to load client projects:', error);
       setError('Failed to load projects. Please try again.');
       setProjects([]);
     } finally {
@@ -111,11 +122,11 @@ export default function ClientProjectsScreen() {
           <Text style={styles.statusText}>{formatStatus(item.status)}</Text>
         </View>
       </View>
-      
+
       <Text style={[styles.projectName, { color: colors.text }]}>
         {item.name || 'Untitled Project'}
       </Text>
-      
+
       <View style={styles.projectFooter}>
         <Text style={[styles.projectAmount, { color: colors.primary }]}>
           {formatCurrency(item.amount)}
@@ -140,8 +151,8 @@ export default function ClientProjectsScreen() {
       <MaterialIcons name="error-outline" size={64} color={colors.error} />
       <Text style={[styles.errorTitle, { color: colors.text }]}>Error Loading Projects</Text>
       <Text style={[styles.errorText, { color: colors.muted }]}>{error}</Text>
-      <TouchableOpacity 
-        style={[styles.retryButton, { backgroundColor: colors.primary }]} 
+      <TouchableOpacity
+        style={[styles.retryButton, { backgroundColor: colors.primary }]}
         onPress={loadProjects}
       >
         <Text style={[styles.retryButtonText, { color: colors.background }]}>Retry</Text>
@@ -155,7 +166,7 @@ export default function ClientProjectsScreen() {
         barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
         backgroundColor={colors.background}
       />
-      
+
       <CustomHeader
         title={`${clientName || 'Client'} Projects`}
         subtitle={`${projects.length} ${projects.length === 1 ? 'project' : 'projects'}`}

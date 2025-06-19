@@ -13,6 +13,8 @@ export interface BudgetCategory {
   percentage: number;
   color: string;
   amount: number;
+  spentAmount?: number;
+  remainingAmount?: number;
   description?: string;
   createdAt: Date;
   updatedAt: Date;

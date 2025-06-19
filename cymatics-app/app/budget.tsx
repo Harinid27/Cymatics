@@ -118,25 +118,55 @@ export default function BudgetScreen() {
     router.back();
   };
 
-  const renderBudgetSplitItem = (item: BudgetCategory, index: number) => (
-    <View key={item.id || index} style={[styles.budgetSplitItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={[styles.colorIndicator, { backgroundColor: item.color || '#4CAF50' }]} />
-      <View style={styles.budgetSplitContent}>
-        <Text style={[styles.budgetSplitName, { color: colors.text }]}>{item.name}</Text>
-        <Text style={[styles.budgetSplitAmount, { color: colors.muted }]}>
-          ₹{item.amount?.toLocaleString() || '0'}
-        </Text>
-        <Text style={[styles.budgetSplitPercentage, { color: colors.muted }]}>
-          {item.percentage || 0}%
-        </Text>
-        {item.description && (
-          <Text style={[styles.budgetSplitDescription, { color: colors.muted }]}>
-            {item.description}
+  const renderBudgetSplitItem = (item: BudgetCategory, index: number) => {
+    const spentAmount = item.spentAmount || 0;
+    const budgetAmount = item.amount || 0;
+    const utilization = budgetAmount > 0 ? (spentAmount / budgetAmount) * 100 : 0;
+    const isOverBudget = utilization > 100;
+
+    return (
+      <View key={item.id || index} style={[styles.budgetSplitItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.colorIndicator, { backgroundColor: item.color || '#4CAF50' }]} />
+        <View style={styles.budgetSplitContent}>
+          <Text style={[styles.budgetSplitName, { color: colors.text }]}>{item.name}</Text>
+          <Text style={[styles.budgetSplitAmount, { color: colors.text }]}>
+            ₹{budgetAmount.toLocaleString()}
           </Text>
-        )}
+          <Text style={[styles.budgetSplitPercentage, { color: colors.muted }]}>
+            {item.percentage || 0}% allocation
+          </Text>
+
+          {/* Spending Information */}
+          <View style={styles.spendingInfo}>
+            <Text style={[styles.spentAmount, { color: isOverBudget ? colors.error : colors.muted }]}>
+              Spent: ₹{spentAmount.toLocaleString()}
+            </Text>
+            <Text style={[styles.remainingAmount, { color: isOverBudget ? colors.error : colors.success }]}>
+              {isOverBudget ? 'Over' : 'Remaining'}: ₹{Math.abs(item.remainingAmount || 0).toLocaleString()}
+            </Text>
+          </View>
+
+          {/* Progress Bar */}
+          <View style={styles.categoryProgressContainer}>
+            <View style={[styles.categoryProgressBar, { backgroundColor: colors.border }]}>
+              <View
+                style={[
+                  styles.categoryProgressFill,
+                  {
+                    backgroundColor: isOverBudget ? colors.error : utilization > 80 ? colors.warning : colors.success,
+                    width: `${Math.min(utilization, 100)}%`
+                  }
+                ]}
+              />
+            </View>
+            <Text style={[styles.categoryProgressText, { color: colors.muted }]}>
+              {utilization.toFixed(0)}%
+            </Text>
+          </View>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderInvestmentItem = (item: any, index: number) => (
     <View key={index} style={styles.investmentSection}>
@@ -167,7 +197,11 @@ export default function BudgetScreen() {
   );
 
   const renderBudgetAnalytics = () => {
-    if (!budgetAnalytics) return null;
+    // Calculate analytics from budget categories
+    const totalBudget = budgetCategories.reduce((sum, cat) => sum + (cat.amount || 0), 0);
+    const totalSpent = budgetCategories.reduce((sum, cat) => sum + (cat.spentAmount || 0), 0);
+    const remainingBudget = totalBudget - totalSpent;
+    const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
     return (
       <View style={[styles.analyticsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -177,7 +211,7 @@ export default function BudgetScreen() {
         <View style={styles.analyticsRow}>
           <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Budget Utilization</Text>
           <Text style={[styles.analyticsValue, { color: colors.text }]}>
-            {budgetAnalytics.budgetUtilization.toFixed(1)}%
+            {budgetUtilization.toFixed(1)}%
           </Text>
         </View>
 
@@ -185,23 +219,23 @@ export default function BudgetScreen() {
         <View style={styles.analyticsRow}>
           <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Total Budget</Text>
           <Text style={[styles.analyticsValue, { color: colors.text }]}>
-            ₹{budgetAnalytics.totalBudget.toLocaleString()}
+            ₹{totalBudget.toLocaleString()}
           </Text>
         </View>
 
         <View style={styles.analyticsRow}>
           <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Total Spent</Text>
           <Text style={[styles.analyticsValue, { color: colors.text }]}>
-            ₹{budgetAnalytics.totalSpent.toLocaleString()}
+            ₹{totalSpent.toLocaleString()}
           </Text>
         </View>
 
         <View style={styles.analyticsRow}>
           <Text style={[styles.analyticsLabel, { color: colors.muted }]}>Remaining Budget</Text>
           <Text style={[styles.analyticsValue, {
-            color: budgetAnalytics.remainingBudget > 0 ? '#4CAF50' : '#F44336'
+            color: remainingBudget >= 0 ? colors.success : colors.error
           }]}>
-            ₹{budgetAnalytics.remainingBudget.toLocaleString()}
+            ₹{remainingBudget.toLocaleString()}
           </Text>
         </View>
 
@@ -213,12 +247,15 @@ export default function BudgetScreen() {
               style={[
                 styles.progressFill,
                 {
-                  backgroundColor: budgetAnalytics.budgetUtilization > 90 ? '#F44336' : '#4CAF50',
-                  width: `${Math.min(budgetAnalytics.budgetUtilization, 100)}%`
+                  backgroundColor: budgetUtilization > 100 ? colors.error : budgetUtilization > 90 ? colors.warning : colors.success,
+                  width: `${Math.min(budgetUtilization, 100)}%`
                 }
               ]}
             />
           </View>
+          <Text style={[styles.progressPercentage, { color: colors.muted }]}>
+            {budgetUtilization.toFixed(1)}% utilized
+          </Text>
         </View>
       </View>
     );
@@ -369,9 +406,9 @@ export default function BudgetScreen() {
           <>
             {/* Balance Cards */}
             <View style={styles.balanceCards}>
-              <View style={[styles.currentBalanceCard, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.cardLabel, { color: colors.background }]}>Current Balance</Text>
-                <Text style={[styles.currentBalanceAmount, { color: colors.background }]}>
+              <View style={[styles.currentBalanceCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Text style={[styles.cardLabel, { color: colors.text }]}>Current Balance</Text>
+                <Text style={[styles.currentBalanceAmount, { color: colors.text }]}>
                   ₹{budgetOverview?.currentBalance?.toLocaleString() || '0'}
                 </Text>
               </View>
@@ -460,6 +497,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 15,
     padding: 20,
+    borderWidth: 1,
   },
   receivedAmountCard: {
     flex: 1,
@@ -756,6 +794,45 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  progressPercentage: {
+    fontSize: 12,
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  spendingInfo: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  spentAmount: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  remainingAmount: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  categoryProgressContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryProgressBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  categoryProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  categoryProgressText: {
+    fontSize: 10,
+    fontWeight: '500',
+    minWidth: 30,
+    textAlign: 'right',
   },
 });
 
