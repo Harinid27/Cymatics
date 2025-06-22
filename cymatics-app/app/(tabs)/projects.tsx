@@ -25,11 +25,13 @@ import ProjectsService, { Project, ProjectsResponse } from '../../src/services/P
 import MapsService from '../../src/services/MapsService';
 import CustomHeader from '../../src/components/CustomHeader';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '../../src/hooks/useThemedAlert';
 
 export default function ProjectsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
@@ -246,10 +248,10 @@ export default function ProjectsScreen() {
 
   // Handle project delete
   const handleDeleteProject = (project: Project) => {
-    Alert.alert(
-      'Delete Project',
-      `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Project',
+      message: `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -268,20 +270,32 @@ export default function ProjectsScreen() {
                 setProjects(updatedProjects);
                 applyFilters(updatedProjects, searchQuery);
 
-                Alert.alert('Success', 'Project deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Project deleted successfully',
+                  buttons: [{ text: 'OK' }]
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete project. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete project. Please try again.',
+                  buttons: [{ text: 'OK' }]
+                });
               }
             } catch (error) {
               console.error('Delete project error:', error);
-              Alert.alert('Error', 'Failed to delete project. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete project. Please try again.',
+                buttons: [{ text: 'OK' }]
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
       ]
-    );
+    });
   };
 
   // Handle project share
@@ -300,7 +314,11 @@ export default function ProjectsScreen() {
       }
     } catch (error) {
       console.error('Error sharing project:', error);
-      Alert.alert('Error', 'Failed to share project. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to share project. Please try again.',
+        buttons: [{ text: 'OK' }]
+      });
     }
   };
 
@@ -601,6 +619,9 @@ export default function ProjectsScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+      
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
