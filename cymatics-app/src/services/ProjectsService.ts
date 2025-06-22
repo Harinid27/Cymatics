@@ -238,37 +238,18 @@ class ProjectsService {
   /**
    * Delete project
    */
-  async deleteProject(id: string): Promise<boolean> {
+  async deleteProject(id: string, force: boolean = false): Promise<boolean> {
     try {
-      const response = await ApiService.delete(
-        `${envConfig.PROJECTS_ENDPOINT}/${id}`
-      );
+      const endpoint = force 
+        ? `${envConfig.PROJECTS_ENDPOINT}/${id}?force=true`
+        : `${envConfig.PROJECTS_ENDPOINT}/${id}`;
+        
+      const response = await ApiService.delete(endpoint);
 
       return response.success;
     } catch (error) {
       console.error('Project deletion error:', error);
       return false;
-    }
-  }
-
-  /**
-   * Get project by ID
-   */
-  async getProjectById(id: string): Promise<Project | null> {
-    try {
-      const response = await ApiService.get<Project>(
-        `${envConfig.PROJECTS_ENDPOINT}/${id}`
-      );
-
-      if (response.success && response.data) {
-        return response.data;
-      }
-
-      console.error('Failed to fetch project by ID:', response.error);
-      return null;
-    } catch (error) {
-      console.error('Project fetch by ID error:', error);
-      return null;
     }
   }
 

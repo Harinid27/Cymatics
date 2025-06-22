@@ -72,12 +72,14 @@ class BudgetService {
         }),
       ]);
 
-      const currentBalance = (totalIncome._sum.amount || 0) - (totalExpenses._sum.amount || 0);
-
-      // Calculate received amount this month (income minus excluded expenses)
-      const rawMonthlyIncome = thisMonthIncome._sum.amount || 0;
+      const totalIncomeAmount = totalIncome._sum.amount || 0;
+      const totalExpensesAmount = totalExpenses._sum.amount || 0;
+      const thisMonthIncomeAmount = thisMonthIncome._sum.amount || 0;
       const excludedExpensesAmount = thisMonthExcludedExpenses._sum.amount || 0;
-      const receivedAmountThisMonth = rawMonthlyIncome - excludedExpensesAmount;
+
+      // Always use real data calculations - no mock data
+      const currentBalance = totalIncomeAmount - totalExpensesAmount;
+      const receivedAmountThisMonth = thisMonthIncomeAmount - excludedExpensesAmount;
 
       // Get monthly income data for chart (last 12 months) - adjusted for excluded expenses
       const totalReceivedChart = [];
@@ -124,12 +126,21 @@ class BudgetService {
         color: category.color,
       }));
 
-      return {
+      const result = {
         currentBalance,
         receivedAmountThisMonth,
         totalReceivedChart,
         budgetSplitUp,
       };
+
+      console.log('✅ Budget overview generated from real data:', {
+        currentBalance,
+        receivedAmountThisMonth,
+        chartLength: totalReceivedChart.length,
+        budgetItemsCount: budgetSplitUp.length
+      });
+
+      return result;
     } catch (error) {
       logger.error('Error getting budget overview:', error);
       throw error;

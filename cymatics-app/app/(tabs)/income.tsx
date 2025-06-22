@@ -9,7 +9,6 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
@@ -21,11 +20,13 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '@/src/hooks/useThemedAlert';
 
 export default function IncomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Ongoing');
   const [incomes, setIncomes] = useState<Income[]>([]);
@@ -322,10 +323,10 @@ export default function IncomeScreen() {
   };
 
   const handleDeleteIncome = (income: Income) => {
-    Alert.alert(
-      'Delete Income',
-      `Are you sure you want to delete this income entry of ${formatCurrency(income.amount)}? This action cannot be undone.`,
-      [
+    showAlert({
+      title: 'Delete Income',
+      message: `Are you sure you want to delete this income entry of ${formatCurrency(income.amount)}? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -344,20 +345,32 @@ export default function IncomeScreen() {
                 setIncomes(updatedIncomes);
                 applyFilters(updatedIncomes, activeTab);
 
-                Alert.alert('Success', 'Income deleted successfully');
+                showAlert({
+                  title: 'Success',
+                  message: 'Income deleted successfully',
+                  buttons: [{ text: 'OK' }],
+                });
               } else {
-                Alert.alert('Error', 'Failed to delete income. Please try again.');
+                showAlert({
+                  title: 'Error',
+                  message: 'Failed to delete income. Please try again.',
+                  buttons: [{ text: 'OK' }],
+                });
               }
             } catch (error) {
               console.error('Delete income error:', error);
-              Alert.alert('Error', 'Failed to delete income. Please try again.');
+              showAlert({
+                title: 'Error',
+                message: 'Failed to delete income. Please try again.',
+                buttons: [{ text: 'OK' }],
+              });
             } finally {
               setIsLoading(false);
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleAddIncome = () => {
@@ -428,8 +441,9 @@ export default function IncomeScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#000']}
-            tintColor="#000"
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >
@@ -437,7 +451,7 @@ export default function IncomeScreen() {
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={loadData} style={styles.retryButton}>
+            <TouchableOpacity onPress={() => loadData()} style={styles.retryButton}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -738,6 +752,9 @@ export default function IncomeScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+      
+      {/* Themed Alert Component */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }
@@ -1049,7 +1066,6 @@ const styles = StyleSheet.create({
   emptyChartText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#999',
   },
   loadingContainer: {
     paddingVertical: 40,
@@ -1062,13 +1078,11 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
     marginTop: 12,
     marginBottom: 4,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#666',
     textAlign: 'center',
   },
   modalOverlay: {

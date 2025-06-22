@@ -248,6 +248,97 @@ export default function ProjectsScreen() {
 
   // Handle project delete
   const handleDeleteProject = (project: Project) => {
+    const attemptDelete = async (forceDelete: boolean = false) => {
+      try {
+        setIsLoading(true);
+        const success = await ProjectsService.deleteProject(project.id, forceDelete);
+
+        if (success) {
+          // Remove the project from local state
+          const updatedProjects = projects.filter(p => p.id !== project.id);
+          setProjects(updatedProjects);
+          applyFilters(updatedProjects, searchQuery);
+
+          showAlert({
+            title: 'Success',
+            message: forceDelete 
+              ? 'Project and all related financial records deleted successfully'
+              : 'Project deleted successfully',
+            buttons: [{ text: 'OK' }]
+          });
+        } else {
+          // First attempt failed - likely has financial records
+          showAlert({
+            title: 'Cannot Delete Project',
+            message: `"${project.name}" cannot be deleted because it has financial records (income or expense entries). What would you like to do?`,
+            buttons: [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+              {
+                text: 'Delete All',
+                style: 'destructive',
+                onPress: () => {
+                  showAlert({
+                    title: 'Confirm Force Delete',
+                    message: `Are you sure you want to delete "${project.name}" and ALL its financial records? This will permanently remove all income and expense entries related to this project. This action cannot be undone.`,
+                    buttons: [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel',
+                      },
+                      {
+                        text: 'Delete Everything',
+                        style: 'destructive',
+                        onPress: () => attemptDelete(true),
+                      },
+                    ]
+                  });
+                },
+              },
+            ]
+          });
+        }
+      } catch (error) {
+        console.error('Delete project error:', error);
+        // First attempt failed - likely has financial records
+        showAlert({
+          title: 'Cannot Delete Project',
+          message: `"${project.name}" cannot be deleted because it has financial records (income or expense entries). What would you like to do?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete All',
+              style: 'destructive',
+              onPress: () => {
+                showAlert({
+                  title: 'Confirm Force Delete',
+                  message: `Are you sure you want to delete "${project.name}" and ALL its financial records? This will permanently remove all income and expense entries related to this project. This action cannot be undone.`,
+                  buttons: [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Delete Everything',
+                      style: 'destructive',
+                      onPress: () => attemptDelete(true),
+                    },
+                  ]
+                });
+              },
+            },
+          ]
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     showAlert({
       title: 'Delete Project',
       message: `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
@@ -259,40 +350,7 @@ export default function ProjectsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              const success = await ProjectsService.deleteProject(project.id);
-
-              if (success) {
-                // Remove the project from local state
-                const updatedProjects = projects.filter(p => p.id !== project.id);
-                setProjects(updatedProjects);
-                applyFilters(updatedProjects, searchQuery);
-
-                showAlert({
-                  title: 'Success',
-                  message: 'Project deleted successfully',
-                  buttons: [{ text: 'OK' }]
-                });
-              } else {
-                showAlert({
-                  title: 'Error',
-                  message: 'Failed to delete project. Please try again.',
-                  buttons: [{ text: 'OK' }]
-                });
-              }
-            } catch (error) {
-              console.error('Delete project error:', error);
-              showAlert({
-                title: 'Error',
-                message: 'Failed to delete project. Please try again.',
-                buttons: [{ text: 'OK' }]
-              });
-            } finally {
-              setIsLoading(false);
-            }
-          },
+          onPress: () => attemptDelete(false),
         },
       ]
     });
@@ -493,8 +551,9 @@ export default function ProjectsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >

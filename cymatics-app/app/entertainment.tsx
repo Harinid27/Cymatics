@@ -327,8 +327,9 @@ export default function EntertainmentScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >

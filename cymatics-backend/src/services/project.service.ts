@@ -621,7 +621,7 @@ class ProjectService {
   /**
    * Delete project
    */
-  async deleteProject(id: number): Promise<{ message: string }> {
+  async deleteProject(id: number, force: boolean = false): Promise<{ message: string }> {
     try {
       // Check if project exists
       const existingProject = await prisma.project.findUnique({
@@ -640,9 +640,24 @@ class ProjectService {
         throw new NotFoundError('Project not found');
       }
 
-      // Check if project has financial records
-      if (existingProject._count.incomes > 0 || existingProject._count.expenses > 0) {
-        throw new ConflictError('Cannot delete project with existing financial records');
+      // Check if project has financial records and force is not enabled
+      if (!force && (existingProject._count.incomes > 0 || existingProject._count.expenses > 0)) {
+        throw new ConflictError('Cannot delete project with existing financial records. Use force delete to remove all related records.');
+      }
+
+      // If force delete, remove all related records first
+      if (force) {
+        // Delete related income records
+        await prisma.income.deleteMany({
+          where: { projectId: id },
+        });
+
+        // Delete related expense records  
+        await prisma.expense.deleteMany({
+          where: { projectId: id },
+        });
+
+        logger.info(`Force deleted financial records for project: ${existingProject.code}`);
       }
 
       await prisma.project.delete({
@@ -652,7 +667,9 @@ class ProjectService {
       logger.info(`Project deleted: ${existingProject.code} - ${existingProject.name}`);
 
       return {
-        message: 'Project deleted successfully',
+        message: force 
+          ? 'Project and all related financial records deleted successfully'
+          : 'Project deleted successfully',
       };
     } catch (error) {
       logger.error('Error deleting project:', error);

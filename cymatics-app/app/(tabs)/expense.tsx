@@ -378,8 +378,9 @@ export default function ExpenseScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#000']}
-            tintColor="#000"
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >

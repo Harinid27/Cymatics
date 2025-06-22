@@ -231,11 +231,12 @@ class ProjectController {
   async deleteProject(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
+      const { force } = req.query; // Support force parameter via query string
 
       // Get project to delete associated image
       const project = await projectService.getProjectById(parseInt(id));
 
-      const result = await projectService.deleteProject(parseInt(id));
+      const result = await projectService.deleteProject(parseInt(id), force === 'true');
 
       // Delete associated image file
       if (project.image) {
@@ -249,7 +250,7 @@ class ProjectController {
         }
       }
 
-      sendSuccessResponse(res, result, 'Project deleted successfully', 200);
+      sendSuccessResponse(res, result, result.message, 200);
     } catch (error) {
       next(error);
     }
