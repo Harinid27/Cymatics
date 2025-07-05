@@ -33,11 +33,12 @@ export interface InvestmentDetail {
 class BudgetService {
   /**
    * Get budget overview with current balance, monthly income, and chart data
+   * Only returns real database data - no mock data fallbacks
    */
   async getBudgetOverview(): Promise<BudgetOverview> {
     try {
       console.log('🏦 Fetching budget overview from dedicated endpoint...');
-      const response = await ApiService.get('/budget/overview');
+      const response = await ApiService.get<BudgetOverview>('/budget/overview');
 
       console.log('🏦 Budget overview API response:', {
         success: response.success,
@@ -50,53 +51,34 @@ class BudgetService {
         return response.data;
       }
 
-      // Fallback to financial endpoint if budget endpoint fails
-      console.log('🏦 Trying fallback financial endpoint...');
-      const fallbackResponse = await ApiService.get('/financial/budget');
-      if (fallbackResponse.success && fallbackResponse.data) {
-        // Transform financial data to budget format if needed
-        const financialData = fallbackResponse.data;
-        return {
-          currentBalance: financialData.summary?.netProfit || 0,
-          receivedAmountThisMonth: financialData.summary?.totalIncome || 0,
-          totalReceivedChart: [],
-          budgetSplitUp: financialData.expenseBreakdown?.map((item: any, index: number) => ({
-            name: item.category || 'Unknown',
-            amount: item.total || 0,
-            color: this.getDefaultColors()[index % this.getDefaultColors().length]
-          })) || []
-        };
-      }
-
-      // Return default data if both APIs fail
-      return this.getDefaultBudgetOverview();
+      // If API fails, return empty data structure - NO MOCK DATA
+      console.log('🏦 API failed, returning empty budget overview data');
+      return {
+        currentBalance: 0,
+        receivedAmountThisMonth: 0,
+        totalReceivedChart: [],
+        budgetSplitUp: []
+      };
     } catch (error) {
       console.error('Error fetching budget overview:', error);
-      // Return default data instead of throwing
-      return this.getDefaultBudgetOverview();
+      // Return empty data instead of mock data
+      return {
+        currentBalance: 0,
+        receivedAmountThisMonth: 0,
+        totalReceivedChart: [],
+        budgetSplitUp: []
+      };
     }
-  }
-
-  private getDefaultBudgetOverview(): BudgetOverview {
-    return {
-      currentBalance: 0,
-      receivedAmountThisMonth: 0,
-      totalReceivedChart: [],
-      budgetSplitUp: []
-    };
-  }
-
-  private getDefaultColors(): string[] {
-    return ['#4CAF50', '#2196F3', '#FF9800', '#F44336', '#9C27B0', '#00BCD4', '#FFEB3B', '#795548'];
   }
 
   /**
    * Get budget categories for budget split up
+   * Only returns real database data - no mock data fallbacks
    */
   async getBudgetCategories(): Promise<BudgetCategory[]> {
     try {
       console.log('📊 Fetching budget categories from dedicated endpoint...');
-      const response = await ApiService.get('/budget/categories');
+      const response = await ApiService.get<{ categories: BudgetCategory[] }>('/budget/categories');
 
       console.log('📊 Budget categories API response:', {
         success: response.success,
@@ -110,8 +92,8 @@ class BudgetService {
         return response.data.categories;
       }
 
-      // Return empty array if API fails
-      console.log('📊 No budget categories found, returning empty array');
+      // Return empty categories if API fails - NO MOCK DATA
+      console.log('📊 API failed, returning empty budget categories');
       return [];
     } catch (error) {
       console.error('Error fetching budget categories:', error);
@@ -129,8 +111,11 @@ class BudgetService {
     description?: string;
   }): Promise<BudgetCategory> {
     try {
-      const response = await ApiService.post('/financial/budget/categories', data);
-      return response.data;
+      const response = await ApiService.post<BudgetCategory>('/financial/budget/categories', data);
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error('Failed to create budget category');
     } catch (error) {
       console.error('Error creating budget category:', error);
       throw error;
@@ -147,8 +132,11 @@ class BudgetService {
     description?: string;
   }): Promise<BudgetCategory> {
     try {
-      const response = await ApiService.put(`/financial/budget/categories/${id}`, data);
-      return response.data;
+      const response = await ApiService.put<BudgetCategory>(`/financial/budget/categories/${id}`, data);
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error('Failed to update budget category');
     } catch (error) {
       console.error('Error updating budget category:', error);
       throw error;
@@ -169,11 +157,12 @@ class BudgetService {
 
   /**
    * Get investment details for balance comparison
+   * Only returns real database data - no mock data fallbacks
    */
   async getInvestmentDetails(): Promise<InvestmentDetail[]> {
     try {
       console.log('💰 Fetching investment details from dedicated endpoint...');
-      const response = await ApiService.get('/budget/investment-details');
+      const response = await ApiService.get<{ investments: InvestmentDetail[] }>('/budget/investment-details');
 
       console.log('💰 Investment details API response:', {
         success: response.success,
@@ -187,8 +176,8 @@ class BudgetService {
         return response.data.investments;
       }
 
-      // Return empty array if API fails
-      console.log('💰 No investment details found, returning empty array');
+      // Return empty investment data if API fails - NO MOCK DATA
+      console.log('💰 API failed, returning empty investment details');
       return [];
     } catch (error) {
       console.error('Error fetching investment details:', error);
@@ -206,7 +195,11 @@ class BudgetService {
   }[]> {
     try {
       console.log('📈 Fetching budget comparison data...');
-      const response = await ApiService.get('/financial/budget/comparison');
+      const response = await ApiService.get<{
+        budget: number;
+        expense: number;
+        balance: number;
+      }[]>('/financial/budget/comparison');
 
       console.log('📈 Budget comparison API response:', {
         success: response.success,
@@ -245,25 +238,25 @@ class BudgetService {
         this.getBudgetCategories()
       ]);
 
-      // Calculate analytics
+      // Calculate analytics from real data only
       const totalBudget = categories.reduce((sum, cat) => sum + cat.amount, 0);
-      const totalSpent = overview.receivedAmountThisMonth; // This would be actual spending in a real scenario
+      const totalSpent = overview.receivedAmountThisMonth;
       const remainingBudget = Math.max(0, totalBudget - totalSpent);
       const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Generate monthly trend (mock data for now)
+      // Generate monthly trend from real chart data
       const monthlyTrend = overview.totalReceivedChart.map(item => ({
         month: item.month,
         budget: totalBudget / 12, // Assuming equal monthly budget
         spent: item.value
       }));
 
-      // Generate category breakdown
+      // Generate category breakdown from real data
       const categoryBreakdown = categories.map(category => ({
         category: category.name,
         budgeted: category.amount,
-        spent: category.amount * (budgetUtilization / 100), // Proportional spending
-        remaining: category.amount * (1 - budgetUtilization / 100)
+        spent: category.spentAmount || 0,
+        remaining: category.remainingAmount || category.amount
       }));
 
       return {
@@ -292,11 +285,14 @@ class BudgetService {
    */
   async getMonthlyIncomeChart(): Promise<{ month: string; value: number }[]> {
     try {
-      const response = await ApiService.get('/financial/income/chart-data');
-      return response.data;
+      const response = await ApiService.get<{ month: string; value: number }[]>('/financial/income/chart-data');
+      if (response.success && response.data) {
+        return response.data;
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching monthly income chart:', error);
-      throw error;
+      return [];
     }
   }
 }

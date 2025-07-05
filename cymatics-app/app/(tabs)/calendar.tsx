@@ -538,8 +538,9 @@ export default function CalendarScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={['#000']}
-            tintColor="#000"
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >
@@ -632,7 +633,7 @@ export default function CalendarScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Event Title</Text>
               <TextInput
@@ -682,25 +683,25 @@ export default function CalendarScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setIsEventDetailModalVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setIsEventDetailModalVisible(false)}>
-              <Text style={styles.modalCancelButton}>Close</Text>
+              <Text style={[styles.modalCancelButton, { color: colors.muted }]}>Close</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Event Details</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Event Details</Text>
             <TouchableOpacity onPress={handleEditEvent}>
-              <Text style={styles.modalSaveButton}>Edit</Text>
+              <Text style={[styles.modalSaveButton, { color: colors.primary }]}>Edit</Text>
             </TouchableOpacity>
           </View>
 
           {selectedEvent && (
-            <ScrollView style={styles.modalContent}>
-              <View style={styles.eventDetailContainer}>
-                <Text style={styles.eventDetailTitle}>{selectedEvent.title}</Text>
+            <ScrollView style={[styles.modalContent, { backgroundColor: colors.background }]}>
+              <View style={[styles.eventDetailContainer, { backgroundColor: colors.background }]}>
+                <Text style={[styles.eventDetailTitle, { color: colors.text }]}>{selectedEvent.title}</Text>
 
                 <View style={styles.eventDetailRow}>
-                  <MaterialIcons name="event" size={20} color="#666" />
-                  <Text style={styles.eventDetailText}>
+                  <MaterialIcons name="event" size={20} color={colors.primary} />
+                  <Text style={[styles.eventDetailText, { color: colors.text }]}>
                     {selectedEvent.startDate.toLocaleDateString('en-IN', {
                       weekday: 'long',
                       day: 'numeric',
@@ -711,8 +712,8 @@ export default function CalendarScreen() {
                 </View>
 
                 <View style={styles.eventDetailRow}>
-                  <MaterialIcons name="access-time" size={20} color="#666" />
-                  <Text style={styles.eventDetailText}>
+                  <MaterialIcons name="access-time" size={20} color={colors.primary} />
+                  <Text style={[styles.eventDetailText, { color: colors.text }]}>
                     {selectedEvent.startDate.toLocaleTimeString('en-IN', {
                       hour: 'numeric',
                       minute: '2-digit',
@@ -728,40 +729,40 @@ export default function CalendarScreen() {
 
                 {selectedEvent.type && (
                   <View style={styles.eventDetailRow}>
-                    <MaterialIcons name="category" size={20} color="#666" />
-                    <Text style={styles.eventDetailText}>{selectedEvent.type}</Text>
+                    <MaterialIcons name="category" size={20} color={colors.primary} />
+                    <Text style={[styles.eventDetailText, { color: colors.text }]}>{selectedEvent.type}</Text>
                   </View>
                 )}
 
                 {selectedEvent.projectCode && (
                   <View style={styles.eventDetailRow}>
-                    <MaterialIcons name="work" size={20} color="#666" />
-                    <Text style={styles.eventDetailText}>{selectedEvent.projectCode}</Text>
+                    <MaterialIcons name="work" size={20} color={colors.primary} />
+                    <Text style={[styles.eventDetailText, { color: colors.text }]}>{selectedEvent.projectCode}</Text>
                   </View>
                 )}
 
                 {selectedEvent.location && (
                   <View style={styles.eventDetailRow}>
-                    <MaterialIcons name="location-on" size={20} color="#666" />
-                    <Text style={styles.eventDetailText}>{selectedEvent.location}</Text>
+                    <MaterialIcons name="location-on" size={20} color={colors.primary} />
+                    <Text style={[styles.eventDetailText, { color: colors.text }]}>{selectedEvent.location}</Text>
                   </View>
                 )}
 
                 {selectedEvent.description && (
                   <View style={styles.eventDetailRow}>
-                    <MaterialIcons name="description" size={20} color="#666" />
-                    <Text style={styles.eventDetailText}>{selectedEvent.description}</Text>
+                    <MaterialIcons name="description" size={20} color={colors.primary} />
+                    <Text style={[styles.eventDetailText, { color: colors.text }]}>{selectedEvent.description}</Text>
                   </View>
                 )}
 
                 {/* Only show delete button for calendar events (not project events) */}
                 {selectedEvent.type === 'calendar' && (
                   <TouchableOpacity
-                    style={styles.deleteButton}
+                    style={[styles.deleteButton, { backgroundColor: colors.error }]}
                     onPress={handleDeleteEvent}
                   >
-                    <MaterialIcons name="delete" size={20} color="#fff" />
-                    <Text style={styles.deleteButtonText}>Delete Event</Text>
+                    <MaterialIcons name="delete" size={20} color={colors.background} />
+                    <Text style={[styles.deleteButtonText, { color: colors.background }]}>Delete Event</Text>
                   </TouchableOpacity>
                 )}
               </View>

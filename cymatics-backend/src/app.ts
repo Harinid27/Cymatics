@@ -38,9 +38,12 @@ app.use(helmet({
 }));
 
 // CORS configuration
+const corsOrigin = config.cors.origin;
+const allowAllOrigins = corsOrigin === '*' || corsOrigin === true;
+
 app.use(cors({
-  origin: config.cors.origin,
-  credentials: true,
+  origin: allowAllOrigins ? true : corsOrigin,
+  credentials: !allowAllOrigins, // Disable credentials for wildcard origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));

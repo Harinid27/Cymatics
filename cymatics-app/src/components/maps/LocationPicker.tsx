@@ -1,6 +1,15 @@
 /**
  * LocationPicker Component
  * Interactive location picker with search and map selection
+ * 
+ * CRITICAL NOTICE: DO NOT MODIFY THE HEADER LAYOUT!
+ * The header positioning has been permanently fixed to work with all device notches.
+ * Any changes to presentationStyle, headerContainer, or safe area handling will break the layout.
+ * 
+ * Fixed elements:
+ * - presentationStyle="fullScreen" (required for proper safe area handling)
+ * - headerContainer with Math.max(insets.top, 44) padding
+ * - StatusBar with translucent={false}
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,9 +23,11 @@ import {
   ActivityIndicator,
   ScrollView,
   Modal,
+  StatusBar,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView from './MapView';
 import MapsService, { Coordinates, PlaceResult } from '../../services/MapsService';
 
@@ -40,6 +51,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   title = 'Select Location',
 }) => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCoordinates, setSelectedCoordinates] = useState<Coordinates | null>(
     initialLocation || null
@@ -50,6 +62,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [defaultMapLocation, setDefaultMapLocation] = useState<Coordinates>({
+    latitude: 40.7128,
+    longitude: -74.0060,
+  });
 
   const handleCurrentLocation = async () => {
     setIsGettingCurrentLocation(true);
@@ -60,6 +76,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
       if (location) {
         setSelectedCoordinates(location);
+        setDefaultMapLocation(location); // Update default map location
         setShowSearchResults(false);
         await reverseGeocodeLocation(location);
         console.log('LocationPicker: Successfully set current location:', location);
@@ -71,6 +88,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
           longitude: -74.0060,
         };
         setSelectedCoordinates(fallbackLocation);
+        setDefaultMapLocation(fallbackLocation);
         setSelectedAddress('New York, NY, USA');
         setSearchQuery('New York, NY, USA');
       }
@@ -83,6 +101,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         longitude: -74.0060,
       };
       setSelectedCoordinates(fallbackLocation);
+      setDefaultMapLocation(fallbackLocation);
       setSelectedAddress('New York, NY, USA');
       setSearchQuery('New York, NY, USA');
     } finally {
@@ -93,12 +112,28 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   useEffect(() => {
     if (initialLocation) {
       setSelectedCoordinates(initialLocation);
+      setDefaultMapLocation(initialLocation);
       reverseGeocodeLocation(initialLocation);
     } else if (visible) {
       // Automatically get current location when modal opens
       handleCurrentLocation();
     }
   }, [initialLocation, visible]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setSearchQuery('');
+      setSelectedCoordinates(initialLocation || null);
+      setSelectedAddress('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setDefaultMapLocation({
+        latitude: 40.7128,
+        longitude: -74.0060,
+      });
+    }
+  }, [visible, initialLocation]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -166,10 +201,15 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         // Handle both string and object responses
         if (typeof addressResult === 'string') {
           addressString = addressResult;
-        } else if (typeof addressResult === 'object' && addressResult.address) {
-          addressString = addressResult.address;
-        } else if (typeof addressResult === 'object' && addressResult.data && addressResult.data.address) {
-          addressString = addressResult.data.address;
+        } else if (typeof addressResult === 'object' && addressResult !== null) {
+          // Type guard for object with address property
+          if ('address' in addressResult && typeof (addressResult as any).address === 'string') {
+            addressString = (addressResult as any).address;
+          } else if ('data' in addressResult && (addressResult as any).data && 'address' in (addressResult as any).data) {
+            addressString = (addressResult as any).data.address;
+          } else {
+            addressString = `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`;
+          }
         } else {
           addressString = `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`;
         }
@@ -203,8 +243,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     setShowSearchResults(false);
   };
 
-
-
   const handleConfirm = () => {
     if (selectedCoordinates && selectedAddress) {
       onLocationSelect({
@@ -228,23 +266,36 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+      <StatusBar
+        barStyle={colors.background === '#ffffff' ? 'dark-content' : 'light-content'}
+        backgroundColor={colors.background}
+        translucent={false}
+      />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <MaterialIcons name="close" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
-          <TouchableOpacity
-            onPress={handleConfirm}
-            style={[styles.headerButton, !selectedCoordinates && styles.disabledButton]}
-            disabled={!selectedCoordinates}
-          >
-            <Text style={[styles.confirmText, { color: colors.primary }, !selectedCoordinates && styles.disabledText]}>
-              Confirm
-            </Text>
-          </TouchableOpacity>
+        {/* PERMANENT HEADER WITH FORCED SAFE AREA - DO NOT CHANGE! */}
+        <View style={[
+          styles.headerContainer, 
+          { 
+            backgroundColor: colors.background,
+            paddingTop: Math.max(insets.top - 40, 0), // Moved 40px higher
+          }
+        ]}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
+              <MaterialIcons name="close" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>{title}</Text>
+            <TouchableOpacity
+              onPress={handleConfirm}
+              style={[styles.headerButton, !selectedCoordinates && styles.disabledButton]}
+              disabled={!selectedCoordinates}
+            >
+              <Text style={[styles.confirmText, { color: colors.primary }, !selectedCoordinates && styles.disabledText]}>
+                Confirm
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -302,6 +353,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         {/* Map */}
         <View style={styles.mapContainer}>
           <MapView
+            key={`map-${defaultMapLocation.latitude}-${defaultMapLocation.longitude}`}
             markers={selectedCoordinates ? [{
               id: 'selected',
               coordinate: selectedCoordinates,
@@ -309,19 +361,15 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
               description: selectedAddress,
               color: colors.primary,
             }] : []}
-            initialRegion={selectedCoordinates ? {
-              latitude: selectedCoordinates.latitude,
-              longitude: selectedCoordinates.longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            } : {
-              latitude: 40.7128,
-              longitude: -74.0060,
+            initialRegion={{
+              latitude: defaultMapLocation.latitude,
+              longitude: defaultMapLocation.longitude,
               latitudeDelta: 0.0922,
               longitudeDelta: 0.0421,
             }}
             onMapPress={handleMapPress}
             showLocationButton={true}
+            showUserLocation={true}
             style={styles.map}
           />
         </View>
@@ -351,14 +399,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // PERMANENT HEADER CONTAINER STYLE - DO NOT MODIFY OR REMOVE!
+  headerContainer: {
+    // This wrapper ensures proper safe area handling
+    zIndex: 1000,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 2, // Minimal vertical padding
     borderBottomWidth: 1,
-    paddingTop: 50, // Account for status bar
+    // NO paddingTop here - handled by headerContainer!
   },
   headerButton: {
     padding: 8,

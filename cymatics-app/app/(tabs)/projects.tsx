@@ -25,11 +25,13 @@ import ProjectsService, { Project, ProjectsResponse } from '../../src/services/P
 import MapsService from '../../src/services/MapsService';
 import CustomHeader from '../../src/components/CustomHeader';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemedAlert } from '../../src/hooks/useThemedAlert';
 
 export default function ProjectsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { showAlert, AlertComponent } = useThemedAlert();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
@@ -246,10 +248,101 @@ export default function ProjectsScreen() {
 
   // Handle project delete
   const handleDeleteProject = (project: Project) => {
-    Alert.alert(
-      'Delete Project',
-      `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
-      [
+    const attemptDelete = async (forceDelete: boolean = false) => {
+      try {
+        setIsLoading(true);
+        const success = await ProjectsService.deleteProject(project.id, forceDelete);
+
+        if (success) {
+          // Remove the project from local state
+          const updatedProjects = projects.filter(p => p.id !== project.id);
+          setProjects(updatedProjects);
+          applyFilters(updatedProjects, searchQuery);
+
+          showAlert({
+            title: 'Success',
+            message: forceDelete 
+              ? 'Project and all related financial records deleted successfully'
+              : 'Project deleted successfully',
+            buttons: [{ text: 'OK' }]
+          });
+        } else {
+          // First attempt failed - likely has financial records
+          showAlert({
+            title: 'Cannot Delete Project',
+            message: `"${project.name}" cannot be deleted because it has financial records (income or expense entries). What would you like to do?`,
+            buttons: [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+              {
+                text: 'Delete All',
+                style: 'destructive',
+                onPress: () => {
+                  showAlert({
+                    title: 'Confirm Force Delete',
+                    message: `Are you sure you want to delete "${project.name}" and ALL its financial records? This will permanently remove all income and expense entries related to this project. This action cannot be undone.`,
+                    buttons: [
+                      {
+                        text: 'Cancel',
+                        style: 'cancel',
+                      },
+                      {
+                        text: 'Delete Everything',
+                        style: 'destructive',
+                        onPress: () => attemptDelete(true),
+                      },
+                    ]
+                  });
+                },
+              },
+            ]
+          });
+        }
+      } catch (error) {
+        console.error('Delete project error:', error);
+        // First attempt failed - likely has financial records
+        showAlert({
+          title: 'Cannot Delete Project',
+          message: `"${project.name}" cannot be deleted because it has financial records (income or expense entries). What would you like to do?`,
+          buttons: [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Delete All',
+              style: 'destructive',
+              onPress: () => {
+                showAlert({
+                  title: 'Confirm Force Delete',
+                  message: `Are you sure you want to delete "${project.name}" and ALL its financial records? This will permanently remove all income and expense entries related to this project. This action cannot be undone.`,
+                  buttons: [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Delete Everything',
+                      style: 'destructive',
+                      onPress: () => attemptDelete(true),
+                    },
+                  ]
+                });
+              },
+            },
+          ]
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    showAlert({
+      title: 'Delete Project',
+      message: `Are you sure you want to delete "${project.name}"? This action cannot be undone.`,
+      buttons: [
         {
           text: 'Cancel',
           style: 'cancel',
@@ -257,31 +350,10 @@ export default function ProjectsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              const success = await ProjectsService.deleteProject(project.id);
-
-              if (success) {
-                // Remove the project from local state
-                const updatedProjects = projects.filter(p => p.id !== project.id);
-                setProjects(updatedProjects);
-                applyFilters(updatedProjects, searchQuery);
-
-                Alert.alert('Success', 'Project deleted successfully');
-              } else {
-                Alert.alert('Error', 'Failed to delete project. Please try again.');
-              }
-            } catch (error) {
-              console.error('Delete project error:', error);
-              Alert.alert('Error', 'Failed to delete project. Please try again.');
-            } finally {
-              setIsLoading(false);
-            }
-          },
+          onPress: () => attemptDelete(false),
         },
       ]
-    );
+    });
   };
 
   // Handle project share
@@ -300,7 +372,11 @@ export default function ProjectsScreen() {
       }
     } catch (error) {
       console.error('Error sharing project:', error);
-      Alert.alert('Error', 'Failed to share project. Please try again.');
+      showAlert({
+        title: 'Error',
+        message: 'Failed to share project. Please try again.',
+        buttons: [{ text: 'OK' }]
+      });
     }
   };
 
@@ -475,8 +551,9 @@ export default function ProjectsScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[colors.text]}
+            tintColor={colors.text}
+            progressBackgroundColor={colors.background}
           />
         }
       >
@@ -601,6 +678,9 @@ export default function ProjectsScreen() {
 
       {/* Menu Drawer */}
       <MenuDrawer visible={isMenuVisible} onClose={handleMenuClose} />
+      
+      {/* Themed Alert */}
+      <AlertComponent />
     </SafeAreaView>
   );
 }

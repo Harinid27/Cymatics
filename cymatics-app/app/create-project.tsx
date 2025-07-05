@@ -518,7 +518,7 @@ export default function CreateProjectScreen() {
             <Text style={[styles.inputLabel, { color: colors.text }]}>Location</Text>
             <View style={styles.locationInputContainer}>
               <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                style={[styles.locationTextInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                 value={formData.location}
                 onChangeText={handleLocationInputChange}
                 placeholder="Start typing location..."
@@ -775,6 +775,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
   },
+  locationTextInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginRight: 10,
+  },
   inputError: {
     borderColor: '#dc3545',
   },
@@ -897,7 +906,6 @@ const styles = StyleSheet.create({
   locationInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
   mapPickerButton: {
     borderWidth: 1,
@@ -905,6 +913,8 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    width: 48,
+    height: 48,
   },
   suggestionsContainer: {
     borderWidth: 1,

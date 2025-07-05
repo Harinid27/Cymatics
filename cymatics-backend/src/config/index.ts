@@ -49,7 +49,7 @@ interface Config {
     file: string;
   };
   cors: {
-    origin: string | string[];
+    origin: string[] | string | boolean;
   };
   security: {
     bcryptRounds: number;
