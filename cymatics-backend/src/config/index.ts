@@ -49,7 +49,7 @@ interface Config {
     file: string;
   };
   cors: {
-    origin: string[];
+    origin: string | string[];
   };
   security: {
     bcryptRounds: number;
@@ -113,15 +113,7 @@ const config: Config = {
   },
 
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || [
-      'http://localhost:3000',
-      'http://localhost:19006',
-      'http://192.168.227.96:19006',
-      'http://192.168.227.96:8081',
-      // Allow React Native/Expo development
-      'exp://192.168.227.96:19000',
-      'exp://localhost:19000'
-    ],
+    origin: process.env.CORS_ORIGIN === '*' ? '*' : (process.env.CORS_ORIGIN?.split(',') || '*'),
   },
 
   security: {

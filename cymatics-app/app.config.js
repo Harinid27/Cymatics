@@ -24,6 +24,7 @@ export default {
       }
     },
     android: {
+      package: "com.cymatics.app",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff"
@@ -54,6 +55,11 @@ export default {
     ],
     experiments: {
       typedRoutes: true
+    },
+    extra: {
+      eas: {
+        projectId: "692d71fe-fabc-47e7-a20a-995af6d2d8ba"
+      }
     }
   }
 };

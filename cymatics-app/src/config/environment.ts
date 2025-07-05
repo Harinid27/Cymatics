@@ -56,8 +56,8 @@ const getApiBaseUrl = (): string => {
     return envUrl;
   }
 
-  // Fallback to your computer's IP for mobile testing
-  const defaultUrl = 'http://192.168.227.96:3000';
+  // Fallback to production backend server
+  const defaultUrl = 'http://141.148.219.249:3000';
   console.log('📍 Using default API URL:', defaultUrl);
   return defaultUrl;
 };
@@ -111,12 +111,12 @@ const environmentOverrides = {
     ENABLE_API_LOGGING: true,
   },
   staging: {
-    API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'https://your-staging-api.com',
+    API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://141.148.219.249:3000',
     DEBUG_MODE: true,
     ENABLE_API_LOGGING: true,
   },
   production: {
-    API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'https://your-production-api.com',
+    API_BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://141.148.219.249:3000',
     DEBUG_MODE: false,
     ENABLE_API_LOGGING: false,
     LOG_LEVEL: 'error' as const,
