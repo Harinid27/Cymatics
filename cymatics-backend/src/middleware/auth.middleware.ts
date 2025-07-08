@@ -11,6 +11,7 @@ export interface JwtPayload {
   id: number;
   username: string;
   email: string;
+  role: string;
   iat?: number;
   exp?: number;
 }
@@ -37,6 +38,7 @@ export const authenticateToken = async (
       id: decoded.id,
       username: decoded.username,
       email: decoded.email,
+      role: decoded.role,
       isActive: true, // Default to true for authenticated users
     };
 
@@ -100,6 +102,7 @@ export const optionalAuth = async (
         id: decoded.id,
         username: decoded.username,
         email: decoded.email,
+        role: decoded.role,
         isActive: true, // Default to true for authenticated users
       };
     }

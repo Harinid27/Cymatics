@@ -302,6 +302,14 @@ const ProjectDetailsScreen: React.FC = () => {
               </View>
             )}
 
+            {project.projectLead && (
+              <View style={styles.detailRow}>
+                <MaterialIcons name="person" size={20} color={colors.muted} />
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>Project Lead:</Text>
+                <Text style={[styles.detailValue, { color: colors.text }]}>{project.projectLead}</Text>
+              </View>
+            )}
+
             {project.onedriveLink && (
               <TouchableOpacity style={styles.detailRow} onPress={handleFiles}>
                 <MaterialIcons name="folder" size={20} color={colors.primary} />

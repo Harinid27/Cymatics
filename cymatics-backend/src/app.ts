@@ -26,6 +26,10 @@ import mapsRoutes from '@/routes/maps.routes';
 import dashboardRoutes from '@/routes/dashboard.routes';
 import budgetRoutes from '@/routes/budget.routes';
 import paymentRoutes from '@/routes/payment.routes';
+import usersRoutes from '@/routes/users.routes';
+import projectCompletionRoutes from '@/routes/projectCompletion.routes';
+import dataReconciliationRoutes from '@/routes/dataReconciliation.routes';
+import scheduledJobsService from '@/services/scheduledJobs.service';
 
 const app = express();
 
@@ -114,6 +118,9 @@ app.use('/api/maps', mapsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/project-completion', projectCompletionRoutes);
+app.use('/api/data-reconciliation', dataReconciliationRoutes);
 
 // API documentation route
 app.get('/api', (_req, res) => {
@@ -134,6 +141,9 @@ app.get('/api', (_req, res) => {
       dashboard: '/api/dashboard',
       budget: '/api/budget',
       payments: '/api/payments',
+      users: '/api/users',
+      projectCompletion: '/api/project-completion',
+      dataReconciliation: '/api/data-reconciliation',
     },
   });
 });
@@ -143,5 +153,11 @@ app.use(notFoundHandler);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
+
+// Start scheduled jobs in production
+if (config.env === 'production') {
+  scheduledJobsService.startScheduledJobs();
+  logger.info('Scheduled jobs started for production environment');
+}
 
 export default app;

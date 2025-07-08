@@ -52,6 +52,13 @@ router.get('/categories', budgetController.getBudgetCategories);
 router.get('/investment-details', budgetController.getInvestmentDetails);
 
 /**
+ * @route   GET /api/budget/comparison
+ * @desc    Get budget vs actual spending comparison
+ * @access  Private
+ */
+router.get('/comparison', budgetController.getBudgetComparison);
+
+/**
  * @route   POST /api/budget/categories
  * @desc    Create budget category
  * @access  Private

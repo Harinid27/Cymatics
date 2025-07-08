@@ -5,13 +5,15 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seeding...');
 
-  // Create a default user
+  // Create a default admin user
   const user = await prisma.user.upsert({
     where: { email: 'admin@cymatics.com' },
     update: {},
     create: {
       username: 'admin',
       email: 'admin@cymatics.com',
+      role: 'ADMIN',
+      permissions: ['*'],
       isActive: true,
     },
   });

@@ -22,6 +22,7 @@ import LocationPicker from '@/src/components/maps/LocationPicker';
 import MapsService, { Coordinates } from '@/src/services/MapsService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemedAlert } from '@/src/hooks/useThemedAlert';
+import { ProjectLeadDropdown } from '@/src/components/ProjectLeadDropdown';
 
 export default function CreateProjectScreen() {
   const { colors } = useTheme();
@@ -46,6 +47,7 @@ export default function CreateProjectScreen() {
     outFor: '',
     outClient: '',
     outsourcingPaid: false,
+    projectLead: '',
     clientId: 0,
   });
 
@@ -175,6 +177,9 @@ export default function CreateProjectScreen() {
           ? formData.outClient.trim()
           : undefined,
         outsourcingPaid: Boolean(formData.outsourcingPaid),
+        projectLead: formData.projectLead && formData.projectLead.trim()
+          ? formData.projectLead.trim()
+          : undefined,
         clientId: Number(formData.clientId),
       };
 
@@ -480,6 +485,12 @@ export default function CreateProjectScreen() {
               </View>
             )}
           </View>
+
+          <ProjectLeadDropdown
+            value={formData.projectLead || ''}
+            onValueChange={(value) => updateFormData('projectLead', value)}
+            placeholder="Select Project Lead"
+          />
         </View>
 
         {/* Project Details */}

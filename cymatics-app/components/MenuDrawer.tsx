@@ -14,6 +14,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUser } from '@/contexts/UserContext';
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -31,9 +32,15 @@ interface MenuItem {
   route: string;
 }
 
-const menuItems: MenuItem[] = [
+// Base menu items that all users can see
+const baseMenuItems: MenuItem[] = [
   { id: 'home', title: 'Home', icon: 'home-filled', route: '/(tabs)' },
   { id: 'projects', title: 'Projects', icon: 'description', route: '/(tabs)/projects' },
+  { id: 'calendar', title: 'Calendar', icon: 'event', route: '/(tabs)/calendar' },
+];
+
+// Admin-only menu items
+const adminMenuItems: MenuItem[] = [
   { id: 'income', title: 'Income', icon: 'payments', route: '/(tabs)/income' },
   { id: 'expense', title: 'Expense', icon: 'attach-money', route: '/(tabs)/expense' },
   { id: 'status', title: 'Status', icon: 'donut-large', route: '/status' },
@@ -41,18 +48,38 @@ const menuItems: MenuItem[] = [
   { id: 'assets', title: 'Assets', icon: 'inventory', route: '/assets' },
   { id: 'entertainment', title: 'Entertainment', icon: 'movie', route: '/entertainment' },
   { id: 'pending', title: 'Pending Payments', icon: 'access-time', route: '/pending-payments' },
-  { id: 'calendar', title: 'Calendar', icon: 'event', route: '/(tabs)/calendar' },
   { id: 'budget', title: 'Budget', icon: 'account-balance-wallet', route: '/budget' },
+  { id: 'user-management', title: 'User Management', icon: 'admin-panel-settings', route: '/user-management' },
+];
+
+// Manager menu items (subset of admin items)
+const managerMenuItems: MenuItem[] = [
+  { id: 'clients', title: 'Clients', icon: 'people', route: '/clients' },
+  { id: 'assets', title: 'Assets', icon: 'inventory', route: '/assets' },
+  { id: 'entertainment', title: 'Entertainment', icon: 'movie', route: '/entertainment' },
 ];
 
 // Force update - Updated menu items
 
 export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
   const { colors } = useTheme();
+  const { userData } = useUser();
   const slideAnim = React.useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const pathname = usePathname();
 
-  console.log('MenuDrawer rendered with', menuItems.length, 'items');
+  // Determine which menu items to show based on user role
+  const isAdmin = userData?.role === 'admin';
+  const isManager = userData?.role === 'manager' || isAdmin;
+
+  let menuItems = [...baseMenuItems];
+  
+  if (isAdmin) {
+    menuItems = [...menuItems, ...adminMenuItems];
+  } else if (isManager) {
+    menuItems = [...menuItems, ...managerMenuItems];
+  }
+
+  console.log('MenuDrawer rendered with', menuItems.length, 'items for role:', userData?.role);
   console.log('Current pathname in MenuDrawer:', pathname);
 
   React.useEffect(() => {
@@ -153,6 +180,22 @@ export default function MenuDrawer({ visible, onClose }: MenuDrawerProps) {
                   resizeMode="contain"
                 />
               </View>
+              {/* User info section */}
+              {userData && (
+                <View style={styles.userInfoSection}>
+                  <Text style={[styles.userName, { color: colors.text }]}>
+                    {userData.name || userData.username}
+                  </Text>
+                  <Text style={[styles.userEmail, { color: colors.muted }]}>
+                    {userData.email}
+                  </Text>
+                  <View style={[styles.roleBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.roleText, { color: colors.background }]}>
+                      {userData.role?.toUpperCase() || 'USER'}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Menu items */}
@@ -201,6 +244,28 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 160,
     height: 60,
+  },
+  userInfoSection: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  roleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   menuSection: {
     flex: 1,

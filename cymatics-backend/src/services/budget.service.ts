@@ -245,6 +245,68 @@ class BudgetService {
   }
 
   /**
+   * Get budget vs actual spending comparison
+   */
+  async getBudgetComparison(): Promise<{
+    budget: number;
+    expense: number;
+    balance: number;
+  }[]> {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const excludedCategories = ['Food & Snacks', 'Fuel & Travel', 'Outsourcing'];
+
+      // Get current month's budget and expenses
+      const [thisMonthIncome, thisMonthExpenses, thisMonthExcludedExpenses] = await Promise.all([
+        prisma.income.aggregate({
+          where: {
+            date: {
+              gte: startOfMonth,
+            },
+          },
+          _sum: { amount: true },
+        }),
+        prisma.expense.aggregate({
+          where: {
+            date: {
+              gte: startOfMonth,
+            },
+            category: {
+              notIn: excludedCategories,
+            },
+          },
+          _sum: { amount: true },
+        }),
+        prisma.expense.aggregate({
+          where: {
+            date: {
+              gte: startOfMonth,
+            },
+            category: {
+              in: excludedCategories,
+            },
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const budget = (thisMonthIncome._sum.amount || 0) - (thisMonthExcludedExpenses._sum.amount || 0);
+      const expense = thisMonthExpenses._sum.amount || 0;
+      const balance = budget - expense;
+
+      return [{
+        budget,
+        expense,
+        balance,
+      }];
+    } catch (error) {
+      logger.error('Error getting budget comparison:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get investment details
    */
   async getInvestmentDetails(): Promise<{ investments: InvestmentDetail[] }> {

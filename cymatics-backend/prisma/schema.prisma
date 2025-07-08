@@ -10,15 +10,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique @db.VarChar(150)
-  email     String   @unique @db.VarChar(254)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  username    String   @unique @db.VarChar(150)
+  email       String   @unique @db.VarChar(254)
+  role        UserRole @default(USER)
+  permissions String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   emailOTPs EmailOTP[]
+  budgets   MonthlyBudget[]
 
   @@map("users")
 }
@@ -91,6 +100,7 @@ model Project {
   outClient         String?   @db.VarChar(100) @map("out_client")
   outsourcingPaid   Boolean   @default(false) @map("outsourcing_paid")
   onedriveLink      String?   @db.Text @map("onedrive_link")
+  projectLead       String?   @db.VarChar(100) @map("project_lead")
   clientId          Int       @default(1) @map("client_id")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -98,6 +108,7 @@ model Project {
   client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   incomes  Income[]  @relation("ProjectIncomes")
   expenses Expense[] @relation("ProjectExpenses")
+  payments ProjectPayment[] @relation("ProjectPayments")
 
   @@map("projects")
 }
@@ -114,6 +125,7 @@ model Income {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   project Project? @relation("ProjectIncomes", fields: [projectId], references: [id], onDelete: Cascade)
+  payments ProjectPayment[] @relation("PaymentIncome")
 
   @@map("incomes")
 }
@@ -175,4 +187,51 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("calendar_events")
+}
+
+model ProjectPayment {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  amount      Int
+  paymentDate DateTime @map("payment_date")
+  description String   @db.Text
+  paymentType String   @db.VarChar(50) @map("payment_type") // 'partial', 'full', 'advance'
+  incomeId    Int?     @map("income_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project Project @relation("ProjectPayments", fields: [projectId], references: [id], onDelete: Cascade)
+  income  Income? @relation("PaymentIncome", fields: [incomeId], references: [id], onDelete: SetNull)
+
+  @@map("project_payments")
+}
+
+model MonthlyBudget {
+  id          String   @id @default(cuid())
+  month       Int
+  year        Int
+  totalBudget Float
+  userId      Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories BudgetCategory[]
+
+  @@unique([month, year, userId])
+  @@map("monthly_budgets")
+}
+
+model BudgetCategory {
+  id             String @id @default(cuid())
+  name           String
+  budgetedAmount Float
+  actualAmount   Float @default(0) @map("actual_amount")
+  budgetId       String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  budget MonthlyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_categories")
 }

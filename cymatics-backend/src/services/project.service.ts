@@ -21,6 +21,7 @@ export interface CreateProjectData {
   outClient?: string;
   outsourcingPaid?: boolean;
   onedriveLink?: string;
+  projectLead?: string;
   clientId: number;
 }
 
@@ -48,6 +49,7 @@ export interface UpdateProjectData {
   outClient?: string;
   outsourcingPaid?: boolean;
   onedriveLink?: string;
+  projectLead?: string;
   clientId?: number;
 }
 
@@ -78,6 +80,7 @@ export interface ProjectWithDetails {
   outClient: string | null;
   outsourcingPaid: boolean;
   onedriveLink: string | null;
+  projectLead: string | null;
   clientId: number;
   createdAt: Date;
   updatedAt: Date;

@@ -45,6 +45,19 @@ class BudgetController {
   }
 
   /**
+   * Get budget vs actual spending comparison
+   */
+  async getBudgetComparison(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const comparison = await budgetService.getBudgetComparison();
+
+      sendSuccessResponse(res, comparison, 'Budget comparison retrieved successfully', 200);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create budget category
    */
   async createBudgetCategory(req: Request, res: Response, next: NextFunction): Promise<void> {

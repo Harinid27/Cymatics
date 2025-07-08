@@ -6,9 +6,16 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useUser } from '@/contexts/UserContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { userData, isAuthenticated } = useUser();
+
+  // Determine which tabs to show based on user role
+  const isAdmin = userData?.role === 'admin';
+  const isManager = userData?.role === 'manager' || isAdmin;
+  const isUser = userData?.role === 'user' || isManager;
 
   return (
     <Tabs
@@ -43,20 +50,25 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <MaterialIcons name="description" size={28} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="income"
-        options={{
-          title: 'Income',
-          tabBarIcon: ({ color }) => <MaterialIcons name="payments" size={28} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="expense"
-        options={{
-          title: 'Expense',
-          tabBarIcon: ({ color }) => <MaterialIcons name="attach-money" size={28} color={color} />,
-        }}
-      />
+      {/* Show Income/Expense tabs only for admin users */}
+      {isAdmin && (
+        <>
+          <Tabs.Screen
+            name="income"
+            options={{
+              title: 'Income',
+              tabBarIcon: ({ color }) => <MaterialIcons name="payments" size={28} color={color} />,
+            }}
+          />
+          <Tabs.Screen
+            name="expense"
+            options={{
+              title: 'Expense',
+              tabBarIcon: ({ color }) => <MaterialIcons name="attach-money" size={28} color={color} />,
+            }}
+          />
+        </>
+      )}
       <Tabs.Screen
         name="calendar"
         options={{

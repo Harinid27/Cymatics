@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import envConfig, { getApiUrl, shouldLogApi } from '../config/environment';
 
 // Types
@@ -178,6 +179,9 @@ class ApiService {
 
     console.log(`📡 [${timestamp}] ${config.method} ${url}`);
     console.log(`🔑 Auth Token: ${this.authToken ? 'Present' : 'Missing'}`);
+    console.log(`🌐 Base URL: ${this.baseURL}`);
+    console.log(`📱 Platform: ${Platform.OS}`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'unknown'}`);
 
     if (config.data) {
       console.log('📤 Request Data:', config.data);
@@ -189,6 +193,12 @@ class ApiService {
 
     if (error) {
       console.error('❌ Error:', error);
+      console.error('❌ Error Details:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        stack: error.stack
+      });
     }
   }
 
@@ -215,8 +225,18 @@ class ApiService {
     } else if (error.response) {
       // Server responded with error status
       status = error.response.status;
-      message = error.response.data?.message || error.response.statusText || message;
-      code = error.response.data?.code || `HTTP_${status}`;
+      
+      // Handle specific HTTP status codes
+      if (status === 403) {
+        message = 'Access Denied - You don\'t have permission to perform this action';
+        code = 'FORBIDDEN';
+      } else if (status === 401) {
+        message = 'Unauthorized - Please log in again';
+        code = 'UNAUTHORIZED';
+      } else {
+        message = error.response.data?.message || error.response.statusText || message;
+        code = error.response.data?.code || `HTTP_${status}`;
+      }
     } else if (error.request) {
       // Network error
       message = 'Network error. Please check your connection.';
@@ -311,6 +331,13 @@ class ApiService {
             // Refresh failed, clear tokens
             await this.clearTokens();
           }
+        }
+
+        // Handle 403 - permission denied
+        if (response.status === 403) {
+          // Could trigger automatic logout for revoked permissions
+          // For now, just return the error
+          console.warn('Permission denied (403) - User may need role update');
         }
 
         return {

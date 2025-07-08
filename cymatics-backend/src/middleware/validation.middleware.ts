@@ -178,6 +178,7 @@ export const projectSchemas = {
     outFor: Joi.string().max(100).optional().allow(''),
     outClient: Joi.string().max(100).optional().allow(''),
     outsourcingPaid: Joi.boolean().default(false),
+    projectLead: Joi.string().max(100).optional().allow(''),
     clientId: Joi.number().integer().positive().required(),
   }),
 
@@ -205,6 +206,7 @@ export const projectSchemas = {
     outFor: Joi.string().max(100).optional().allow(''),
     outClient: Joi.string().max(100).optional().allow(''),
     outsourcingPaid: Joi.boolean().optional(),
+    projectLead: Joi.string().max(100).optional().allow(''),
     clientId: Joi.number().integer().positive().optional(),
   }),
 

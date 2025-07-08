@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { dashboardController } from '@/controllers/dashboard.controller';
 import { validateQuery } from '@/middleware/validation.middleware';
 import { authenticateToken } from '@/middleware/auth.middleware';
+import { requireRole } from '@/middleware/rbac.middleware';
 import Joi from 'joi';
 
 const router = Router();
 
-// All routes require authentication
+// All routes require authentication and admin role
 router.use(authenticateToken);
+router.use(requireRole(['ADMIN']));
 
 /**
  * @route   GET /api/dashboard/stats

@@ -26,12 +26,14 @@ import MapsService from '../../src/services/MapsService';
 import CustomHeader from '../../src/components/CustomHeader';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemedAlert } from '../../src/hooks/useThemedAlert';
+import { usePermissions } from '../../src/hooks/usePermissions';
 
 export default function ProjectsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showAlert, AlertComponent } = useThemedAlert();
+  const { hasPermission } = usePermissions();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
@@ -440,6 +442,11 @@ export default function ProjectsScreen() {
                 Client: {project.client.company || project.client.name}
               </Text>
             )}
+            {project.projectLead && (
+              <Text style={[styles.projectLead, { color: colors.muted }]}>
+                Lead: {project.projectLead}
+              </Text>
+            )}
             <View style={styles.projectMeta}>
               <Text style={[styles.projectAmount, { color: colors.primary }]}>
                 {formatCurrency(project.amount)}
@@ -465,26 +472,31 @@ export default function ProjectsScreen() {
                 <MaterialIcons name="share" size={16} color={colors.muted} />
                 <Text style={[styles.shareButtonText, { color: colors.muted }]}>Share</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.editButton, { backgroundColor: colors.surface }]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleEditProject(project);
-                }}
-              >
-                <MaterialIcons name="edit" size={16} color={colors.primary} />
-                <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.deleteButton, { backgroundColor: colors.surface }]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleDeleteProject(project);
-                }}
-              >
-                <MaterialIcons name="delete" size={16} color="#F44336" />
-                <Text style={[styles.deleteButtonText, { color: "#F44336" }]}>Delete</Text>
-              </TouchableOpacity>
+              {/* Show edit/delete buttons only for users with write permissions */}
+              {hasPermission('projects:write') && (
+                <>
+                  <TouchableOpacity
+                    style={[styles.editButton, { backgroundColor: colors.surface }]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleEditProject(project);
+                    }}
+                  >
+                    <MaterialIcons name="edit" size={16} color={colors.primary} />
+                    <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.deleteButton, { backgroundColor: colors.surface }]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProject(project);
+                    }}
+                  >
+                    <MaterialIcons name="delete" size={16} color="#F44336" />
+                    <Text style={[styles.deleteButtonText, { color: "#F44336" }]}>Delete</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </TouchableOpacity>
@@ -579,9 +591,11 @@ export default function ProjectsScreen() {
                 : 'Create your first project to get started'
               }
             </Text>
-            <TouchableOpacity style={[styles.createFirstButton, { backgroundColor: colors.primary }]} onPress={handleCreateProject}>
-              <Text style={[styles.createFirstButtonText, { color: colors.background }]}>Create Project</Text>
-            </TouchableOpacity>
+            {hasPermission('projects:write') && (
+              <TouchableOpacity style={[styles.createFirstButton, { backgroundColor: colors.primary }]} onPress={handleCreateProject}>
+                <Text style={[styles.createFirstButtonText, { color: colors.background }]}>Create Project</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : filteredProjects.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -605,13 +619,15 @@ export default function ProjectsScreen() {
 
 
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.floatingButton, { backgroundColor: colors.primary }]}
-        onPress={handleCreateProject}
-      >
-        <MaterialIcons name="add" size={28} color={colors.background} />
-      </TouchableOpacity>
+      {/* Floating Action Button - Only show for users with write permissions */}
+      {hasPermission('projects:write') && (
+        <TouchableOpacity
+          style={[styles.floatingButton, { backgroundColor: colors.primary }]}
+          onPress={handleCreateProject}
+        >
+          <MaterialIcons name="add" size={28} color={colors.background} />
+        </TouchableOpacity>
+      )}
 
       {/* Filter Modal */}
       <Modal
@@ -830,6 +846,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   clientName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  projectLead: {
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 10,

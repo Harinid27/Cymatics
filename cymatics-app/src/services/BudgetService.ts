@@ -38,7 +38,7 @@ class BudgetService {
   async getBudgetOverview(): Promise<BudgetOverview> {
     try {
       console.log('🏦 Fetching budget overview from dedicated endpoint...');
-      const response = await ApiService.get<BudgetOverview>('/budget/overview');
+      const response = await ApiService.get<BudgetOverview>('/api/budget/overview');
 
       console.log('🏦 Budget overview API response:', {
         success: response.success,
@@ -78,7 +78,7 @@ class BudgetService {
   async getBudgetCategories(): Promise<BudgetCategory[]> {
     try {
       console.log('📊 Fetching budget categories from dedicated endpoint...');
-      const response = await ApiService.get<{ categories: BudgetCategory[] }>('/budget/categories');
+      const response = await ApiService.get<{ categories: BudgetCategory[] }>('/api/budget/categories');
 
       console.log('📊 Budget categories API response:', {
         success: response.success,
@@ -111,7 +111,7 @@ class BudgetService {
     description?: string;
   }): Promise<BudgetCategory> {
     try {
-      const response = await ApiService.post<BudgetCategory>('/financial/budget/categories', data);
+      const response = await ApiService.post<BudgetCategory>('/api/budget/categories', data);
       if (response.success && response.data) {
         return response.data;
       }
@@ -132,7 +132,7 @@ class BudgetService {
     description?: string;
   }): Promise<BudgetCategory> {
     try {
-      const response = await ApiService.put<BudgetCategory>(`/financial/budget/categories/${id}`, data);
+      const response = await ApiService.put<BudgetCategory>(`/api/budget/categories/${id}`, data);
       if (response.success && response.data) {
         return response.data;
       }
@@ -148,7 +148,7 @@ class BudgetService {
    */
   async deleteBudgetCategory(id: number): Promise<void> {
     try {
-      await ApiService.delete(`/financial/budget/categories/${id}`);
+      await ApiService.delete(`/api/budget/categories/${id}`);
     } catch (error) {
       console.error('Error deleting budget category:', error);
       throw error;
@@ -162,7 +162,7 @@ class BudgetService {
   async getInvestmentDetails(): Promise<InvestmentDetail[]> {
     try {
       console.log('💰 Fetching investment details from dedicated endpoint...');
-      const response = await ApiService.get<{ investments: InvestmentDetail[] }>('/budget/investment-details');
+      const response = await ApiService.get<{ investments: InvestmentDetail[] }>('/api/budget/investment-details');
 
       console.log('💰 Investment details API response:', {
         success: response.success,
@@ -199,7 +199,7 @@ class BudgetService {
         budget: number;
         expense: number;
         balance: number;
-      }[]>('/financial/budget/comparison');
+      }[]>('/api/budget/comparison');
 
       console.log('📈 Budget comparison API response:', {
         success: response.success,

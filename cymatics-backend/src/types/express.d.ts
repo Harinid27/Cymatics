@@ -16,6 +16,7 @@ declare global {
         id: number;
         email: string;
         username: string;
+        role: string;
         isActive: boolean;
       };
     }

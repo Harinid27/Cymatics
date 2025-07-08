@@ -19,6 +19,7 @@ import MenuDrawer from '@/components/MenuDrawer';
 import { calendarService, CalendarEventData, DayEvents } from '@/src/services/CalendarService';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemedAlert } from '@/src/hooks/useThemedAlert';
+import { usePermissions } from '@/src/hooks/usePermissions';
 import { useRouter } from 'expo-router';
 
 // Use types from CalendarService
@@ -27,6 +28,7 @@ export default function CalendarScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { showAlert, AlertComponent } = useThemedAlert();
+  const { hasPermission } = usePermissions();
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().getDate());
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -135,6 +137,15 @@ export default function CalendarScreen() {
 
   // Event creation functions
   const handleCreateEvent = () => {
+    // Check if user has permission to create events
+    if (!hasPermission('calendar:write')) {
+      showAlert({
+        title: 'Access Denied',
+        message: 'You don\'t have permission to create calendar events. Contact your administrator for access.',
+      });
+      return;
+    }
+
     // Set default time for selected date
     const selectedDateTime = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDate);
     const defaultStartTime = new Date(selectedDateTime);
@@ -151,6 +162,15 @@ export default function CalendarScreen() {
 
   const handleEditEvent = () => {
     if (!selectedEvent) return;
+
+    // Check if user has permission to edit events
+    if (!hasPermission('calendar:write')) {
+      showAlert({
+        title: 'Access Denied',
+        message: 'You don\'t have permission to edit calendar events. Contact your administrator for access.',
+      });
+      return;
+    }
 
     setEventTitle(selectedEvent.title);
     setEventStartTime(selectedEvent.startDate.toISOString().slice(0, 16));
@@ -240,6 +260,15 @@ export default function CalendarScreen() {
 
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
+
+    // Check if user has permission to delete events
+    if (!hasPermission('calendar:write')) {
+      showAlert({
+        title: 'Access Denied',
+        message: 'You don\'t have permission to delete calendar events. Contact your administrator for access.',
+      });
+      return;
+    }
 
     showAlert({
       title: 'Delete Event',
@@ -603,10 +632,12 @@ export default function CalendarScreen() {
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={handleCreateEvent}>
-        <MaterialIcons name="add" size={24} color={colors.background} />
-      </TouchableOpacity>
+      {/* Floating Action Button - Only show for users with write permissions */}
+      {hasPermission('calendar:write') && (
+        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={handleCreateEvent}>
+          <MaterialIcons name="add" size={24} color={colors.background} />
+        </TouchableOpacity>
+      )}
 
       {/* Event Creation/Edit Modal */}
       <Modal
@@ -689,9 +720,11 @@ export default function CalendarScreen() {
               <Text style={[styles.modalCancelButton, { color: colors.muted }]}>Close</Text>
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Event Details</Text>
-            <TouchableOpacity onPress={handleEditEvent}>
-              <Text style={[styles.modalSaveButton, { color: colors.primary }]}>Edit</Text>
-            </TouchableOpacity>
+            {hasPermission('calendar:write') && (
+              <TouchableOpacity onPress={handleEditEvent}>
+                <Text style={[styles.modalSaveButton, { color: colors.primary }]}>Edit</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {selectedEvent && (
@@ -755,8 +788,8 @@ export default function CalendarScreen() {
                   </View>
                 )}
 
-                {/* Only show delete button for calendar events (not project events) */}
-                {selectedEvent.type === 'calendar' && (
+                {/* Only show delete button for calendar events (not project events) and users with write permissions */}
+                {selectedEvent.type === 'calendar' && hasPermission('calendar:write') && (
                   <TouchableOpacity
                     style={[styles.deleteButton, { backgroundColor: colors.error }]}
                     onPress={handleDeleteEvent}

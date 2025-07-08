@@ -9,6 +9,7 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
@@ -30,6 +31,8 @@ import DashboardService, {
 import DjangoEquivalentCharts from '../../src/components/charts/DjangoEquivalentCharts';
 import ChartDataTransformer from '../../src/utils/chartDataTransformer';
 import { useTheme } from '@/contexts/ThemeContext';
+import { debugNetworkConnectivity, logAppInfo } from '../../src/utils/debugHelper';
+import envConfig from '../../src/config/environment';
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
@@ -69,6 +72,20 @@ export default function DashboardScreen() {
 
   const handleProfilePress = () => {
     router.push('/profile');
+  };
+
+  const handleDebugPress = async () => {
+    console.log('🔍 Starting debug...');
+    logAppInfo();
+    const debugResult = await debugNetworkConnectivity();
+    console.log('🔍 Debug Result:', debugResult);
+    
+    // Show alert with debug info
+    Alert.alert(
+      'Debug Info',
+      `API URL: ${envConfig.API_BASE_URL}\nBuild Type: ${__DEV__ ? 'Development' : 'Production'}\nCheck console for detailed logs`,
+      [{ text: 'OK' }]
+    );
   };
 
 
@@ -190,6 +207,9 @@ export default function DashboardScreen() {
           <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard</Text>
         </View>
         <View style={styles.rightSection}>
+          <TouchableOpacity style={styles.debugButton} onPress={handleDebugPress}>
+            <IconSymbol name="info.circle" size={24} color={colors.text} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
             <IconSymbol name="person.circle.fill" size={32} color={colors.text} />
           </TouchableOpacity>
@@ -443,6 +463,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '600',
+  },
+  debugButton: {
+    padding: 5,
+    marginRight: 8,
   },
   profileButton: {
     padding: 5,

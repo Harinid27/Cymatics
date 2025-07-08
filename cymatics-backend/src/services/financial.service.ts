@@ -833,6 +833,103 @@ class FinancialService {
       throw error;
     }
   }
+
+  /**
+   * Update project received amount and create payment record
+   */
+  async updateProjectReceived(projectId: number, amount: number, description?: string): Promise<void> {
+    try {
+      // Validate project exists
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+      });
+
+      if (!project) {
+        throw new ValidationError('Project not found');
+      }
+
+      // Create income record for the payment
+      const income = await this.createIncome({
+        date: new Date(),
+        description: description || `Project Payment - ${project.name || project.code}`,
+        amount,
+        projectIncome: true,
+        projectId,
+      });
+
+      // Create payment record
+      await prisma.projectPayment.create({
+        data: {
+          projectId,
+          amount,
+          paymentDate: new Date(),
+          description: description || `Payment for ${project.name || project.code}`,
+          paymentType: amount >= project.amount ? 'full' : 'partial',
+          incomeId: income.id,
+        },
+      });
+
+      // Update project finances
+      await projectService.updateProjectFinances(projectId);
+
+      logger.info(`Project payment recorded: ${project.code} - ₹${amount}`);
+    } catch (error) {
+      logger.error('Error updating project received amount:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get payment history for a project
+   */
+  async getProjectPaymentHistory(projectId: number): Promise<{
+    payments: Array<{
+      id: number;
+      amount: number;
+      paymentDate: Date;
+      description: string;
+      paymentType: string;
+      incomeId?: number | null;
+    }>;
+    totalReceived: number;
+    totalAmount: number;
+    pendingAmount: number;
+  }> {
+    try {
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          payments: {
+            orderBy: { paymentDate: 'desc' },
+          },
+        },
+      });
+
+      if (!project) {
+        throw new NotFoundError('Project not found');
+      }
+
+      const totalReceived = project.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const pendingAmount = project.amount - totalReceived;
+
+      return {
+        payments: project.payments.map(payment => ({
+          id: payment.id,
+          amount: payment.amount,
+          paymentDate: payment.paymentDate,
+          description: payment.description,
+          paymentType: payment.paymentType,
+          ...(payment.incomeId && { incomeId: payment.incomeId }),
+        })),
+        totalReceived,
+        totalAmount: project.amount,
+        pendingAmount,
+      };
+    } catch (error) {
+      logger.error('Error getting project payment history:', error);
+      throw error;
+    }
+  }
 }
 
 export const financialService = new FinancialService();

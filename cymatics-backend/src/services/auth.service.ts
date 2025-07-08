@@ -10,11 +10,14 @@ import {
   ConflictError
 } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { UserRole } from '@prisma/client';
 
 export interface AuthUser {
   id: number;
   username: string;
   email: string;
+  role: string;
+  permissions: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -142,6 +145,7 @@ class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role,
       });
 
       logger.info(`User logged in successfully: ${email}`);
@@ -151,6 +155,8 @@ class AuthService {
           id: user.id,
           username: user.username,
           email: user.email,
+          role: user.role,
+          permissions: user.permissions,
           isActive: user.isActive,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
@@ -180,6 +186,8 @@ class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        role: user.role,
+        permissions: user.permissions,
         isActive: user.isActive,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -237,6 +245,8 @@ class AuthService {
         id: updatedUser.id,
         username: updatedUser.username,
         email: updatedUser.email,
+        role: updatedUser.role,
+        permissions: updatedUser.permissions,
         isActive: updatedUser.isActive,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt,
@@ -326,6 +336,88 @@ class AuthService {
       };
     } catch (error) {
       logger.error('Error getting user stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Assign role to user (Admin only)
+   */
+  async assignRole(adminUserId: number, targetUserId: number, role: string): Promise<AuthUser> {
+    try {
+      // Check if admin user is actually an admin
+      const adminUser = await prisma.user.findUnique({
+        where: { id: adminUserId },
+      });
+
+      if (!adminUser || adminUser.role !== 'ADMIN') {
+        throw new AuthenticationError('Only admins can assign roles');
+      }
+
+      // Validate role
+      const validRoles = ['ADMIN', 'MANAGER', 'USER'];
+      if (!validRoles.includes(role)) {
+        throw new ValidationError('Invalid role');
+      }
+
+      // Update user role with proper enum type
+      const updatedUser = await prisma.user.update({
+        where: { id: targetUserId },
+        data: { role: role as UserRole },
+      });
+
+      logger.info(`Role ${role} assigned to user ${updatedUser.email} by admin ${adminUser.email}`);
+
+      return {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        permissions: updatedUser.permissions,
+        isActive: updatedUser.isActive,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+    } catch (error) {
+      logger.error('Error assigning role:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user permissions (Admin only)
+   */
+  async updateUserPermissions(adminUserId: number, targetUserId: number, permissions: string[]): Promise<AuthUser> {
+    try {
+      // Check if admin user is actually an admin
+      const adminUser = await prisma.user.findUnique({
+        where: { id: adminUserId },
+      });
+
+      if (!adminUser || adminUser.role !== 'ADMIN') {
+        throw new AuthenticationError('Only admins can update permissions');
+      }
+
+      // Update user permissions
+      const updatedUser = await prisma.user.update({
+        where: { id: targetUserId },
+        data: { permissions },
+      });
+
+      logger.info(`Permissions updated for user ${updatedUser.email} by admin ${adminUser.email}`);
+
+      return {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        permissions: updatedUser.permissions,
+        isActive: updatedUser.isActive,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      };
+    } catch (error) {
+      logger.error('Error updating user permissions:', error);
       throw error;
     }
   }

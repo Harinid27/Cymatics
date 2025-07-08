@@ -11,6 +11,8 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  role: string;
+  permissions: string[];
   name?: string;
   phone?: string;
   profileImage?: string;
@@ -103,6 +105,13 @@ class AuthService {
         return response.data;
       }
 
+      // Handle permission-related failures
+      if (response.status === 403) {
+        console.error('Permission denied while fetching profile:', response.error);
+        // Could trigger logout or show permission error
+        return null;
+      }
+
       console.error('Failed to fetch profile:', response.error);
       return null;
     } catch (error) {
@@ -150,6 +159,14 @@ class AuthService {
 
       if (response.success) {
         return { success: true };
+      }
+
+      // Handle permission-related failures
+      if (response.status === 403) {
+        return {
+          success: false,
+          error: 'Your permissions have been revoked. Please contact your administrator.',
+        };
       }
 
       return {

@@ -29,6 +29,7 @@ export interface Project {
   outClient?: string;
   outsourcingPaid: boolean;
   onedriveLink?: string;
+  projectLead?: string;
   rating: number;
   latitude?: number;
   longitude?: number;
@@ -90,6 +91,7 @@ export interface CreateProjectData {
   outClient?: string;
   outsourcingPaid?: boolean;
   onedriveLink?: string;
+  projectLead?: string;
   clientId: number;
   image?: string;
 }

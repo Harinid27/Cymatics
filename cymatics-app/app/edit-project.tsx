@@ -20,6 +20,7 @@ import DatePicker from '@/src/components/DatePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemedAlert } from '@/src/hooks/useThemedAlert';
+import { ProjectLeadDropdown } from '@/src/components/ProjectLeadDropdown';
 
 interface FormData {
   name: string;
@@ -38,6 +39,7 @@ interface FormData {
   outClient: string;
   outsourcingPaid: boolean;
   onedriveLink: string;
+  projectLead: string;
   clientId: number;
 }
 
@@ -66,6 +68,7 @@ export default function EditProjectScreen() {
     outClient: '',
     outsourcingPaid: false,
     onedriveLink: '',
+    projectLead: '',
     clientId: 0,
   });
 
@@ -110,6 +113,7 @@ export default function EditProjectScreen() {
           outClient: project.outClient || '',
           outsourcingPaid: project.outsourcingPaid || false,
           onedriveLink: project.onedriveLink || '',
+          projectLead: project.projectLead || '',
           clientId: project.clientId || 0,
         });
       } else {
@@ -401,6 +405,12 @@ export default function EditProjectScreen() {
               </View>
             )}
           </View>
+
+          <ProjectLeadDropdown
+            value={formData.projectLead || ''}
+            onValueChange={(value) => updateFormData('projectLead', value)}
+            placeholder="Select Project Lead"
+          />
         </View>
 
         {/* Project Details */}

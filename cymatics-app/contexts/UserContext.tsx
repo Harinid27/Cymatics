@@ -6,6 +6,8 @@ export interface UserData {
   name: string;
   username: string;
   email: string;
+  role: 'admin' | 'manager' | 'user';
+  permissions: string[];
   bio: string;
   links: string[];
   profileImage?: string;
@@ -30,6 +32,10 @@ interface UserContextType {
   isTokenExpired: () => boolean;
   getTokenExpiryTime: () => Date | null;
   checkAuthStatus: () => Promise<void>;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (roles: string[]) => boolean;
+  isAdmin: () => boolean;
+  isManager: () => boolean;
 }
 
 // Remove hardcoded default data - will be loaded from API
@@ -105,6 +111,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       name: user.name || AuthService.getUserDisplayName(user),
       username: user.username || `@${user.email.split('@')[0]}`,
       email: user.email,
+      role: user.role || 'user',
+      permissions: user.permissions || [],
       bio: user.bio || 'Cymatics Team Member',
       links: user.links || ['Cymatics.in'],
       profileImage: user.profileImage,
@@ -301,6 +309,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(null);
   };
 
+  // Permission checking functions
+  const hasPermission = (permission: string): boolean => {
+    if (!userData || !userData.permissions) return false;
+    
+    // Admin has all permissions
+    if (userData.permissions.includes('*')) return true;
+    
+    return userData.permissions.includes(permission);
+  };
+
+  const hasRole = (roles: string[]): boolean => {
+    if (!userData || !userData.role) return false;
+    return roles.includes(userData.role);
+  };
+
+  const isAdmin = (): boolean => {
+    return hasRole(['admin']);
+  };
+
+  const isManager = (): boolean => {
+    return hasRole(['admin', 'manager']);
+  };
+
   return (
     <UserContext.Provider value={{
       userData,
@@ -317,7 +348,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       refreshToken,
       isTokenExpired,
       getTokenExpiryTime,
-      checkAuthStatus
+      checkAuthStatus,
+      hasPermission,
+      hasRole,
+      isAdmin,
+      isManager
     }}>
       {children}
     </UserContext.Provider>
